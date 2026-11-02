@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Runs on the TPU VM as root (started detached by scripts/run_baseline.sh).
 #
-#   vm_baseline.sh smoke      Qwen3-0.6B, TP=1, one small benchmark
-#   vm_baseline.sh baseline   Qwen3-30B-A3B, TP=4 + EP, full sweep + profile
+#   vm_baseline.sh smoke        Qwen3-0.6B, TP=1, one small benchmark
+#   vm_baseline.sh tp8_ep       Qwen3-30B-A3B, TP=8 + EP=8           (8 chips)
+#   vm_baseline.sh dp2_tp4_ep   Qwen3-30B-A3B, 2 replicas x TP=4, EP=8 (8 chips)
+#   vm_baseline.sh tp4_ep       Qwen3-30B-A3B, TP=4 + EP=4           (4 chips)
 #
 # Each finished benchmark is copied to the bucket right away, so a VM that hits
 # its max run duration mid-sweep still leaves the finished results behind.
@@ -10,17 +12,32 @@
 set -Eeuo pipefail
 source "$(dirname "$0")/config.sh"
 
-MODE=${1:?usage: vm_baseline.sh smoke|baseline}
+MODE=${1:?usage: vm_baseline.sh smoke|tp8_ep|dp2_tp4_ep|tp4_ep}
 W=$VM_WORKDIR
 STATUS_FILE=$W/logs/$MODE.status
 CONTAINER=afd-vllm
 PORT=8000
+mkdir -p "$W/logs"
 echo RUNNING > "$STATUS_FILE"
 trap 'echo FAILED > "$STATUS_FILE"; docker rm -f $CONTAINER >/dev/null 2>&1 || true' ERR
 
 # Shared benchmark workload (course plan): random tokens, 1024 in, 256 out.
 INPUT_LEN=1024
 OUTPUT_LEN=256
+
+# Settings shared by every Qwen3-30B-A3B layout. This is the v6e recipe from
+# the vllm-torchtpu docs, except:
+#  - bf16 KV cache (no --kv-cache-dtype fp8): the CUSTOM attention backend with
+#    fp8 KV and one KV head per chip decodes garbage (bug #2435). bf16 KV still
+#    leaves several times the KV space the c=128 sweep needs.
+#  - --max-num-seqs 128 (per replica): covers c=128 and skips compiling the
+#    256/512 batch buckets.
+MOE_ARGS=(--enable-expert-parallel --attention-backend CUSTOM
+  --max-model-len 4096 --max-num-batched-tokens 4096 --max-num-seqs 128
+  --gpu-memory-utilization 0.92 --async-scheduling --no-enable-prefix-caching
+  --profiler-config.profiler torch --profiler-config.torch_profiler_dir /profile
+  --profiler-config.ignore_frontend true)
+MOE_CONCURRENCIES="${CONCURRENCIES:-1 4 8 16 32 64 128}"
 
 case "$MODE" in
   smoke)
@@ -35,31 +52,28 @@ case "$MODE" in
     WARMUPS=""
     PROFILE_CONCURRENCY=""
     ;;
-  baseline)
+  tp8_ep|dp2_tp4_ep|tp4_ep)
     MODEL=Qwen/Qwen3-30B-A3B
-    # v6e-4 recipe from the vllm-torchtpu docs, except:
-    #  - bf16 KV cache (no --kv-cache-dtype fp8): CUSTOM + fp8 KV with one KV
-    #    head per chip decodes garbage (bug #2435). bf16 KV still fits ~7x the
-    #    KV the c=64 sweep needs.
-    #  - --max-num-seqs 128: covers c=64 and skips compiling 256/512 buckets.
-    SERVE_ARGS=(--tensor-parallel-size 4 --enable-expert-parallel
-      --attention-backend CUSTOM --max-model-len 4096
-      --max-num-batched-tokens 4096 --max-num-seqs 128
-      --gpu-memory-utilization 0.92 --async-scheduling --no-enable-prefix-caching
-      --profiler-config.profiler torch --profiler-config.torch_profiler_dir /profile
-      --profiler-config.ignore_frontend true)
-    CONCURRENCIES="${CONCURRENCIES:-1 4 16 64}"
+    case "$MODE" in
+      tp8_ep)     SERVE_ARGS=(--tensor-parallel-size 8 "${MOE_ARGS[@]}") ;;
+      # One API server: vLLM otherwise starts one per DP rank.
+      dp2_tp4_ep) SERVE_ARGS=(--data-parallel-size 2 --tensor-parallel-size 4
+                    --api-server-count 1 "${MOE_ARGS[@]}") ;;
+      tp4_ep)     SERVE_ARGS=(--tensor-parallel-size 4 "${MOE_ARGS[@]}") ;;
+    esac
+    CONCURRENCIES=$MOE_CONCURRENCIES
     NUM_PROMPTS="${NUM_PROMPTS:-200}"
     # Discarded passes that exercise small and large batches before measuring.
-    WARMUPS="1:4 64:64"
+    WARMUPS="1:4 128:128"
     PROFILE_CONCURRENCY=16
     ;;
   *) echo "unknown mode $MODE" >&2; exit 2 ;;
 esac
 
-RUN_NAME=$([ "$MODE" = baseline ] && echo colocated || echo smoke)
+RUN_NAME=$([ "$MODE" = smoke ] && echo smoke || echo "colocated/$MODE")
 RESULTS=$W/results/$RUN_NAME
-mkdir -p "$RESULTS" "$W/profile" "$W/logs"
+PROFILE_DIR=$W/profile/$MODE
+mkdir -p "$RESULTS" "$PROFILE_DIR"
 SERVER_LOG=$W/logs/server_$MODE.log
 DEST=$BUCKET/$BUCKET_PREFIX
 
@@ -74,7 +88,7 @@ printf '%q ' vllm serve "$MODEL" "${SERVE_ARGS[@]}" --port $PORT > "$RESULTS/ser
 docker run -d --name $CONTAINER \
   --privileged --net=host \
   -v /dev/shm:/dev/shm --shm-size 150gb \
-  -v "$W/cache:/cache" -v "$W/hf:/hf" -v "$W/results:/results" -v "$W/profile:/profile" \
+  -v "$W/cache:/cache" -v "$W/hf:/hf" -v "$W/results:/results" -v "$PROFILE_DIR:/profile" \
   -e HF_HOME=/hf \
   -e TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT=/cache/torch_tpu_tier3 \
   -e VLLM_CACHE_ROOT=/cache/vllm \

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Collect vllm bench serve result JSONs (colocated_c*.json) into summary.csv.
+"""Collect vllm bench serve results into summary.csv, one row per layout and
+concurrency level.
 
 usage: scripts/summarize.py results/colocated
+Reads results/colocated/<layout>/colocated_c<N>.json.
 """
 import csv
 import json
@@ -9,14 +11,13 @@ import re
 import sys
 from pathlib import Path
 
-COLUMNS = [
-    ("concurrency", None),
+# (csv column, key in the vllm bench serve JSON)
+METRICS = [
     ("completed", "completed"),
     ("duration_s", "duration"),
     ("request_throughput_req_s", "request_throughput"),
     ("output_throughput_tok_s", "output_throughput"),
     ("total_token_throughput_tok_s", "total_token_throughput"),
-    ("per_user_tok_s", None),  # 1000 / mean TPOT: decode speed one user sees
     ("mean_ttft_ms", "mean_ttft_ms"),
     ("median_ttft_ms", "median_ttft_ms"),
     ("p99_ttft_ms", "p99_ttft_ms"),
@@ -27,25 +28,31 @@ COLUMNS = [
     ("p99_itl_ms", "p99_itl_ms"),
     ("mean_e2el_ms", "mean_e2el_ms"),
 ]
+# per_user_tok_s = 1000 / mean TPOT: the decode speed one user sees.
+COLUMNS = ["layout", "chips", "concurrency", "per_user_tok_s"] + [c for c, _ in METRICS]
+CHIPS = {"tp8_ep": 8, "dp2_tp4_ep": 8, "tp4_ep": 4}
 
 
 def main() -> None:
-    d = Path(sys.argv[1])
+    root = Path(sys.argv[1])
     rows = []
-    for f in d.glob("colocated_c*.json"):
+    for f in sorted(root.glob("*/colocated_c*.json")):
         r = json.loads(f.read_text())
-        c = int(re.search(r"_c(\d+)\.json$", f.name).group(1))
-        row = {"concurrency": c, "per_user_tok_s": 1000.0 / r["mean_tpot_ms"]}
-        for col, key in COLUMNS:
-            if key:
-                row[col] = r.get(key)
+        layout = f.parent.name
+        row = {
+            "layout": layout,
+            "chips": CHIPS.get(layout, ""),
+            "concurrency": int(re.search(r"_c(\d+)\.json$", f.name).group(1)),
+            "per_user_tok_s": 1000.0 / r["mean_tpot_ms"] if r.get("mean_tpot_ms") else None,
+        }
+        row.update({col: r.get(key) for col, key in METRICS})
         rows.append(row)
     if not rows:
-        sys.exit(f"no colocated_c*.json in {d}")
-    rows.sort(key=lambda r: r["concurrency"])
-    out = d / "summary.csv"
+        sys.exit(f"no <layout>/colocated_c*.json under {root}")
+    rows.sort(key=lambda r: (r["layout"], r["concurrency"]))
+    out = root / "summary.csv"
     with out.open("w", newline="") as fh:
-        w = csv.DictWriter(fh, [c for c, _ in COLUMNS])
+        w = csv.DictWriter(fh, COLUMNS)
         w.writeheader()
         for row in rows:
             w.writerow({k: round(v, 3) if isinstance(v, float) else v for k, v in row.items()})
