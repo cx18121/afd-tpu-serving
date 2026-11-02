@@ -1,0 +1,12 @@
+# Credentials never go in git.
+.env
+*.key
+*.pem
+*credentials*.json
+service-account*.json
+
+# Large artifacts live in gs://cs5470-fa26-team27-data/colocated/, not git.
+profile/
+cache/
+results/**/profile_c*.json
+.DS_Store
