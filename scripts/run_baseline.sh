@@ -73,5 +73,8 @@ mkdir -p "$REPO/results"
 gcloud storage rsync -r "$BUCKET/$BUCKET_PREFIX/results/" "$REPO/results/"
 if [ -d "$REPO/results/colocated" ]; then
   python3 "$REPO/scripts/summarize.py" "$REPO/results/colocated"
+  for d in "$REPO"/results/colocated/*/; do
+    python3 "$REPO/scripts/workload_card.py" "${d%/}"
+  done
 fi
 echo "Results are in $BUCKET/$BUCKET_PREFIX/ and results/. Next: scripts/teardown.sh $NAME $ZONE"
