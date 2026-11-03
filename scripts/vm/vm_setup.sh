@@ -12,14 +12,20 @@ if ! command -v docker >/dev/null; then
 fi
 systemctl start docker
 
-docker pull "$IMAGE"
+timeout 1800 docker pull "$IMAGE"
 
 mkdir -p "$VM_WORKDIR"/{cache,hf,results,profile,logs}
 
+# Run id: names this run's folder in the bucket (runs/<run id>/). Auto mode
+# writes it before setup; otherwise make one from the date and host name.
+[ -s "$VM_WORKDIR/run_id" ] || echo "$(date +%Y%m%d-%H%M%S)-$(hostname)" > "$VM_WORKDIR/run_id"
+echo "Run id: $(cat "$VM_WORKDIR/run_id")"
+
 # Restore the compile cache from earlier runs, if any.
-if gcloud storage ls "$BUCKET/$BUCKET_PREFIX/cache/" >/dev/null 2>&1; then
-  echo "Restoring compile cache from $BUCKET/$BUCKET_PREFIX/cache/"
-  gcloud storage rsync -r "$BUCKET/$BUCKET_PREFIX/cache/" "$VM_WORKDIR/cache/"
+if gcloud storage ls "$CACHE_URI/" >/dev/null 2>&1; then
+  echo "Restoring compile cache from $CACHE_URI/"
+  timeout 1200 gcloud storage rsync -r "$CACHE_URI/" "$VM_WORKDIR/cache/" \
+    || echo "WARN: cache restore failed or timed out; compiling from scratch"
 else
   echo "No compile cache in the bucket yet; the first start will compile from scratch."
 fi

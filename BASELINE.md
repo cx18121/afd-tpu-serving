@@ -19,15 +19,26 @@ The VM runs everything itself once it starts and deletes itself at the end,
 so you can close your laptop right after the request is queued.
 
 ```bash
-scripts/create_vm.sh charlie-v6e us-east5-a 8 4 --auto      # queue; returns at once
-gcloud storage cat gs://cs5470-fa26-team27-data/colocated/status/charlie-v6e.txt   # progress
-scripts/fetch_results.sh                                     # after "deleting VM" appears
-gcloud compute instances list                                # confirm nothing is left
+scripts/create_vm.sh charlie-v6e us-east5-a 8 4 --auto   # queue; prints the run id
+gcloud storage cat gs://cs5470-fa26-team27-data/colocated/runs/<run id>/status.txt   # progress
+scripts/fetch_results.sh <run id>                         # after "cleanup" appears
+gcloud compute instances list                             # confirm nothing is left
 ```
 
-If any step fails, the VM still uploads its logs and deletes itself. A failed
-smoke test skips the long runs. A flex-start request waits in the queue for
-at most 2 hours (Google's limit); if it expires, run the same command again.
+Safeguards, all on the VM:
+
+- A failed step does not stop later layouts. A failed smoke test skips the
+  long runs.
+- Each benchmark and upload has a time limit. A timer armed at boot uploads
+  results and deletes the VM 25 minutes before `--max-run-duration`, even if
+  a step hangs or the scripts never downloaded.
+- Uploads retry 3 times. If results still cannot be uploaded, the VM is kept
+  for someone to rescue them, until that timer deletes it.
+- If `gcloud` cannot delete the VM, it deletes itself through the Compute REST
+  API.
+
+A flex-start request waits in the queue for at most 2 hours (Google's limit).
+If it expires, run the same command again.
 
 ### Step by step (for debugging)
 
@@ -43,7 +54,9 @@ starts, the VM sits idle until its max run duration.
 
 If a zone has no capacity, the request stays PENDING. Delete it and try
 us-east5-b, then us-central1-a. Keep only one request open at a time so two
-VMs cannot start together and exceed the chip limit.
+VMs cannot start together and exceed the chip limit. `create_vm.sh` refuses a
+request that would exceed 8 v6e chips, counting pending requests, but two
+people submitting at the same moment can both pass the check.
 
 `run_baseline.sh` takes about 3 hours on a cold cache. It runs detached on the
 VM, so closing your laptop does not stop it; rerun the same command to resume
@@ -98,7 +111,7 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
   `TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT` (compiled TPU binaries) and
   `VLLM_CACHE_ROOT` (Python-side artifacts). Both point at
   `/opt/afd/cache` on the VM, which is synced to
-  `gs://cs5470-fa26-team27-data/colocated/cache/`.
+  `gs://cs5470-fa26-team27-data/colocated/cache/` (shared by all runs).
 - Possibly relevant, not yet hit: concurrent cold compiles sharing one cache
   can collide (#1566, may affect the DP=2 layout), and a warm start may not
   be much faster than a cold one (#1644).
@@ -119,11 +132,12 @@ TBD after the first run. Full table: `results/colocated/summary.csv`.
 
 | What | Where |
 |---|---|
-| Per-run benchmark JSON | `results/colocated/<layout>/colocated_c<N>.json`, also in the bucket |
+| Everything from one run | `gs://cs5470-fa26-team27-data/colocated/runs/<run id>/` (results, profile, logs, status.txt) |
+| Per-run benchmark JSON | `results/colocated/<layout>/colocated_c<N>.json` (copied by `fetch_results.sh`) |
 | Summary | `results/colocated/summary.csv` |
-| Profile traces (c=16, separate unmeasured run) | `gs://cs5470-fa26-team27-data/colocated/profile/<layout>/` |
+| Profile traces (c=16, separate unmeasured run) | `runs/<run id>/profile/<layout>/` |
 | CCL-Bench workload card | `results/colocated/<layout>/workload_card.yaml` |
-| Server and benchmark logs | `gs://cs5470-fa26-team27-data/colocated/logs/` |
+| Server and benchmark logs | `runs/<run id>/logs/` |
 | Compile cache | `gs://cs5470-fa26-team27-data/colocated/cache/` |
 
 Profiling costs about 11% TTFT and 4% throughput (vllm-torchtpu docs), so

@@ -13,8 +13,11 @@ fi
 NAME=$1 ZONE=$2
 SSH=(gcloud compute ssh "$NAME" --project="$PROJECT" --zone="$ZONE")
 
+snap=$(mktemp -d)
+write_config_snapshot "$snap/config.sh"
 "${SSH[@]}" --command="mkdir -p ~/afd-scripts"
 gcloud compute scp --project="$PROJECT" --zone="$ZONE" \
-  "$(dirname "$0")/config.sh" "$(dirname "$0")"/vm/*.sh "$NAME":~/afd-scripts/
+  "$snap/config.sh" "$(dirname "$0")"/vm/*.sh "$NAME":~/afd-scripts/
+rm -rf "$snap"
 
 "${SSH[@]}" --command="sudo bash ~/afd-scripts/vm_setup.sh"

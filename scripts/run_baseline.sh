@@ -37,8 +37,11 @@ else
   esac
 fi
 
+snap=$(mktemp -d)
+write_config_snapshot "$snap/config.sh"
 gcloud compute scp --project="$PROJECT" --zone="$ZONE" \
-  "$REPO/scripts/config.sh" "$REPO"/scripts/vm/*.sh "$NAME":~/afd-scripts/
+  "$snap/config.sh" "$REPO"/scripts/vm/*.sh "$NAME":~/afd-scripts/
+rm -rf "$snap"
 
 run_step() {
   local step=$1 state
@@ -69,5 +72,6 @@ for step in "${STEPS[@]}"; do
   run_step "$step"
 done
 
-"$REPO/scripts/fetch_results.sh"
-echo "Results are in $BUCKET/$BUCKET_PREFIX/ and results/. Next: scripts/teardown.sh $NAME $ZONE"
+RUN_ID=$("${SSH[@]}" "sudo cat $VM_WORKDIR/run_id")
+"$REPO/scripts/fetch_results.sh" "$RUN_ID"
+echo "Next: scripts/teardown.sh $NAME $ZONE"

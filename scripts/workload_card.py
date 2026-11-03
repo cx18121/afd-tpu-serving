@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write a CCL-Bench workload card for one colocated layout's profiled run.
 
-usage: scripts/workload_card.py results/colocated/tp8_ep
+usage: scripts/workload_card.py results/colocated/tp8_ep RUN_ID
 Reads versions.txt from that directory and writes workload_card.yaml next to
 it. Field layout follows CCL-Bench's workload_card_template.yaml.
 """
@@ -26,7 +26,7 @@ description: >
   {num_prompts} prompts, 1024 input / 256 output tokens, after the measured
   (unprofiled) sweep. CS 5470 Team 27.
 hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
-trace_url: gs://cs5470-fa26-team27-data/colocated/profile/{layout}/
+trace_url: gs://cs5470-fa26-team27-data/colocated/runs/{run_id}/profile/{layout}/
 contributor: Charlie Xue
 contact: cx267@cornell.edu
 
@@ -99,10 +99,11 @@ def version(text: str, pkg: str) -> str:
 def main() -> None:
     d = Path(sys.argv[1])
     layout = d.name
+    run_id = sys.argv[2]
     tp, dp, ep, chips = LAYOUTS[layout]
     versions = (d / "versions.txt").read_text() if (d / "versions.txt").exists() else ""
     card = CARD.format(
-        layout=layout, tp=tp, dp=dp, ep=ep, chips=chips,
+        layout=layout, run_id=run_id, tp=tp, dp=dp, ep=ep, chips=chips,
         concurrency=PROFILE_CONCURRENCY, num_prompts=2 * PROFILE_CONCURRENCY,
         vllm=version(versions, "vllm"), plugin=version(versions, "vllm-torchtpu")
         if "vllm-torchtpu" in versions else version(versions, "vllm_torchtpu"),

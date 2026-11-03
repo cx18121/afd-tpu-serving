@@ -75,11 +75,11 @@ RESULTS=$W/results/$RUN_NAME
 PROFILE_DIR=$W/profile/$MODE
 mkdir -p "$RESULTS" "$PROFILE_DIR"
 SERVER_LOG=$W/logs/server_$MODE.log
-DEST=$BUCKET/$BUCKET_PREFIX
+DEST=$RUNS_URI/$(vm_run_id)
 
 upload_results() {
-  gcloud storage rsync -r "$W/results/" "$DEST/results/" --quiet || echo "WARN: results upload failed"
-  gcloud storage rsync -r "$W/logs/" "$DEST/logs/" --quiet || echo "WARN: log upload failed"
+  timeout 600 gcloud storage rsync -r "$W/results/" "$DEST/results/" --quiet || echo "WARN: results upload failed"
+  timeout 600 gcloud storage rsync -r "$W/logs/" "$DEST/logs/" --quiet || echo "WARN: log upload failed"
 }
 
 docker rm -f $CONTAINER >/dev/null 2>&1 || true
@@ -99,7 +99,7 @@ docker logs -f $CONTAINER > "$SERVER_LOG" 2>&1 &
 
 # Cold start downloads weights and compiles; allow up to 75 minutes.
 start=$(date +%s)
-until curl -sf localhost:$PORT/health >/dev/null; do
+until curl -sf --max-time 10 localhost:$PORT/health >/dev/null; do
   if [ "$(docker inspect -f '{{.State.Running}}' $CONTAINER 2>/dev/null)" != true ]; then
     echo "Server container exited during startup. Last log lines:" >&2
     tail -50 "$SERVER_LOG" >&2
@@ -149,7 +149,7 @@ PY
 
 bench() {  # bench CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
   local c=$1 n=$2 name=$3; shift 3
-  docker exec $CONTAINER vllm bench serve \
+  timeout 2700 docker exec $CONTAINER vllm bench serve \
     --backend vllm --model "$MODEL" --host localhost --port $PORT \
     --dataset-name random --random-input-len $INPUT_LEN --random-output-len $OUTPUT_LEN \
     --num-prompts "$n" --max-concurrency "$c" --request-rate inf \
@@ -176,7 +176,7 @@ if [ -n "$PROFILE_CONCURRENCY" ]; then
   echo "$(date -Is) profiled run c=$c"
   bench "$c" $((2 * c)) "profile_c$c" --profile 2>&1 | tee "$W/logs/${MODE}_profile_c$c.log"
   sleep 20  # let ranks finish writing traces
-  gcloud storage rsync -r "$W/profile/" "$DEST/profile/" --quiet || echo "WARN: profile upload failed"
+  timeout 900 gcloud storage rsync -r "$W/profile/" "$DEST/profile/" --quiet || echo "WARN: profile upload failed"
 fi
 
 docker rm -f $CONTAINER >/dev/null

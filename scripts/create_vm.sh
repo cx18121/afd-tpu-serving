@@ -10,7 +10,7 @@
 # With --auto, the VM runs everything itself once it starts (setup, smoke test,
 # every layout for its chip count, uploads) and then deletes itself. The script
 # returns right after the request is queued; you can close your laptop.
-# Progress: gcloud storage cat gs://<bucket>/colocated/status/NAME.txt
+# Progress: gcloud storage cat gs://<bucket>/colocated/runs/<run id>/status.txt
 # Override the steps with AFD_STEPS="smoke tp8_ep"; keep the VM after the run
 # with AFD_SELF_DELETE=false (then delete it yourself).
 #
@@ -36,12 +36,18 @@ if ! [[ "$HOURS" =~ ^[0-9]+$ ]] || [ "$HOURS" -lt 1 ] || [ "$HOURS" -gt 8 ]; the
   exit 2
 fi
 
-# Project-wide limit: count v6e chips in every non-terminated instance.
+# Project-wide limit: count v6e chips in every non-terminated instance,
+# including PENDING requests. Refuse if the listing itself fails. This does not
+# stop two people who submit at the same moment; coordinate in the team chat.
+if ! listing=$(gcloud compute instances list --project="$PROJECT" \
+    --filter='status!=TERMINATED' --format='value(machineType.basename())'); then
+  echo "Refusing: could not list instances to check the $MAX_V6E_CHIPS-chip limit." >&2
+  exit 1
+fi
 in_use=0
 while read -r mt; do
   [[ "$mt" =~ ^ct6e-standard-([0-9]+)t$ ]] && in_use=$((in_use + BASH_REMATCH[1]))
-done < <(gcloud compute instances list --project="$PROJECT" \
-  --filter='status!=TERMINATED' --format='value(machineType.basename())')
+done <<< "$listing"
 if [ $((in_use + CHIPS)) -gt "$MAX_V6E_CHIPS" ]; then
   echo "Refusing: $in_use v6e chips already requested or running, +$CHIPS would exceed $MAX_V6E_CHIPS." >&2
   gcloud compute instances list --project="$PROJECT"
@@ -56,13 +62,20 @@ if [ "$AUTO" = --auto ]; then
     1) default_steps="smoke" ;;
   esac
   STEPS=${AFD_STEPS:-$default_steps}
-  # Snapshot this exact version of the scripts in the bucket for the VM to fetch.
-  SCRIPTS_URI="$BUCKET/$BUCKET_PREFIX/runs/$NAME-$(date +%Y%m%d-%H%M%S)/scripts"
+  RUN_ID="$(date +%Y%m%d-%H%M%S)-$NAME"
+  RUN_URI="$RUNS_URI/$RUN_ID"
+  # The VM runs afd-cleanup --force at this point, before the hard cap, so
+  # results are uploaded and the VM deleted even if a step hangs.
+  DEADLINE_MIN=$((HOURS * 60 - 25))
+  # Snapshot the scripts and effective settings for the VM to fetch.
   HERE=$(dirname "$0")
-  gcloud storage cp "$HERE/config.sh" "$HERE"/vm/*.sh "$SCRIPTS_URI/" --quiet
+  snap=$(mktemp -d)
+  write_config_snapshot "$snap/config.sh"
+  gcloud storage cp "$snap/config.sh" "$HERE"/vm/*.sh "$RUN_URI/scripts/" --quiet
+  rm -rf "$snap"
   AUTO_ARGS=(--metadata-from-file="startup-script=$HERE/vm/startup.sh"
-    --metadata="afd-scripts-uri=$SCRIPTS_URI,afd-steps=$STEPS,afd-self-delete=${AFD_SELF_DELETE:-true}")
-  echo "Auto mode: steps '$STEPS', scripts at $SCRIPTS_URI"
+    --metadata="afd-run-id=$RUN_ID,afd-run-uri=$RUN_URI,afd-steps=$STEPS,afd-deadline-min=$DEADLINE_MIN,afd-workdir=$VM_WORKDIR,afd-self-delete=${AFD_SELF_DELETE:-true}")
+  echo "Auto mode: run $RUN_ID, steps '$STEPS', forced cleanup after ${DEADLINE_MIN} min"
 fi
 
 echo "Requesting $NAME: $MACHINE_TYPE in $ZONE, FLEX_START, max run ${HOURS}h"
@@ -84,9 +97,9 @@ gcloud compute instances create "$NAME" \
 
 if [ "$AUTO" = --auto ]; then
   echo "Queued. The VM runs and deletes itself once it starts; nothing else to do."
-  echo "Progress: gcloud storage cat $BUCKET/$BUCKET_PREFIX/status/$NAME.txt"
   echo "Request state: gcloud compute instances describe $NAME --zone=$ZONE --format='value(status)'"
-  echo "Then fetch results: scripts/fetch_results.sh"
+  echo "Progress once running: gcloud storage cat $RUN_URI/status.txt"
+  echo "Results when done: scripts/fetch_results.sh $RUN_ID"
   exit 0
 fi
 
