@@ -13,12 +13,33 @@ You need `gcloud` logged in with access to project `cs5470-fa26-team27`.
 Ask the team before creating a VM: the project allows at most 8 v6e chips at
 once, and an 8-chip VM uses all of them.
 
+### Hands-off (`--auto`)
+
+The VM runs everything itself once it starts and deletes itself at the end,
+so you can close your laptop right after the request is queued.
+
+```bash
+scripts/create_vm.sh charlie-v6e us-east5-a 8 4 --auto      # queue; returns at once
+gcloud storage cat gs://cs5470-fa26-team27-data/colocated/status/charlie-v6e.txt   # progress
+scripts/fetch_results.sh                                     # after "deleting VM" appears
+gcloud compute instances list                                # confirm nothing is left
+```
+
+If any step fails, the VM still uploads its logs and deletes itself. A failed
+smoke test skips the long runs. A flex-start request waits in the queue for
+at most 2 hours (Google's limit); if it expires, run the same command again.
+
+### Step by step (for debugging)
+
 ```bash
 scripts/create_vm.sh charlie-v6e us-east5-a 8 4   # NAME ZONE CHIPS HOURS; waits until RUNNING
 scripts/setup_vm.sh  charlie-v6e us-east5-a       # Docker, pinned image, compile cache restore
 scripts/run_baseline.sh charlie-v6e us-east5-a    # smoke test, both layouts, profile, upload
 scripts/teardown.sh  charlie-v6e us-east5-a       # upload results + cache, delete VM, list instances
 ```
+
+This mode needs your laptop awake until teardown: if it sleeps after the VM
+starts, the VM sits idle until its max run duration.
 
 If a zone has no capacity, the request stays PENDING. Delete it and try
 us-east5-b, then us-central1-a. Keep only one request open at a time so two
@@ -114,4 +135,6 @@ the profiled run is separate from the measured sweep.
 |---|---|---|---|---|
 | 2026-11-02 | us-east5-a | ct6e-standard-4t | Pending 1 h, cancelled when we switched to 8 chips | 0 |
 | 2026-11-02 | us-east5-a | ct6e-standard-8t | Pending ~65 min, no capacity, cancelled | 0 |
-| 2026-11-02 | us-central1-a | ct6e-standard-8t | Pending since 20:09 ET | TBD |
+| 2026-11-02 | us-central1-a | ct6e-standard-8t | Pending 2 h 19 min, expired (`ZONE_RESOURCE_POOL_EXHAUSTED`) | 0 |
+| 2026-11-02 | us-central1-a | ct6e-standard-8t | Pending 2 h, expired (same) | 0 |
+| 2026-11-03 | us-central1-a | ct6e-standard-8t | Pending ~55 min, cancelled for the night | 0 |

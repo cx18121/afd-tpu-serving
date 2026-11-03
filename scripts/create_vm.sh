@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # Request a flex-start TPU v6e VM and wait until it is RUNNING.
 #
-#   scripts/create_vm.sh NAME ZONE CHIPS HOURS
-#   scripts/create_vm.sh charlie-v6e us-east5-a 4 4
+#   scripts/create_vm.sh NAME ZONE CHIPS HOURS [--auto]
+#   scripts/create_vm.sh charlie-v6e us-east5-a 8 4
+#   scripts/create_vm.sh charlie-v6e us-east5-a 8 4 --auto
+#
+# Without --auto, it waits until the VM is RUNNING; then run setup_vm.sh,
+# run_baseline.sh, and teardown.sh yourself.
+# With --auto, the VM runs everything itself once it starts (setup, smoke test,
+# every layout for its chip count, uploads) and then deletes itself. The script
+# returns right after the request is queued; you can close your laptop.
+# Progress: gcloud storage cat gs://<bucket>/colocated/status/NAME.txt
+# Override the steps with AFD_STEPS="smoke tp8_ep"; keep the VM after the run
+# with AFD_SELF_DELETE=false (then delete it yourself).
 #
 # CHIPS is 1, 4, or 8 (ct6e-standard-{1,4,8}t). HOURS sets --max-run-duration;
 # the VM deletes itself (and its disk) when that runs out, so upload results
@@ -11,11 +21,11 @@
 set -euo pipefail
 source "$(dirname "$0")/config.sh"
 
-if [ $# -ne 4 ]; then
-  echo "usage: $0 NAME ZONE CHIPS HOURS" >&2
+if [ $# -lt 4 ] || [ $# -gt 5 ] || { [ $# -eq 5 ] && [ "$5" != --auto ]; }; then
+  echo "usage: $0 NAME ZONE CHIPS HOURS [--auto]" >&2
   exit 2
 fi
-NAME=$1 ZONE=$2 CHIPS=$3 HOURS=$4
+NAME=$1 ZONE=$2 CHIPS=$3 HOURS=$4 AUTO=${5:-}
 
 case "$CHIPS" in
   1|4|8) MACHINE_TYPE="ct6e-standard-${CHIPS}t" ;;
@@ -38,6 +48,23 @@ if [ $((in_use + CHIPS)) -gt "$MAX_V6E_CHIPS" ]; then
   exit 1
 fi
 
+AUTO_ARGS=()
+if [ "$AUTO" = --auto ]; then
+  case "$CHIPS" in
+    8) default_steps="smoke tp8_ep dp2_tp4_ep" ;;
+    4) default_steps="smoke tp4_ep" ;;
+    1) default_steps="smoke" ;;
+  esac
+  STEPS=${AFD_STEPS:-$default_steps}
+  # Snapshot this exact version of the scripts in the bucket for the VM to fetch.
+  SCRIPTS_URI="$BUCKET/$BUCKET_PREFIX/runs/$NAME-$(date +%Y%m%d-%H%M%S)/scripts"
+  HERE=$(dirname "$0")
+  gcloud storage cp "$HERE/config.sh" "$HERE"/vm/*.sh "$SCRIPTS_URI/" --quiet
+  AUTO_ARGS=(--metadata-from-file="startup-script=$HERE/vm/startup.sh"
+    --metadata="afd-scripts-uri=$SCRIPTS_URI,afd-steps=$STEPS,afd-self-delete=${AFD_SELF_DELETE:-true}")
+  echo "Auto mode: steps '$STEPS', scripts at $SCRIPTS_URI"
+fi
+
 echo "Requesting $NAME: $MACHINE_TYPE in $ZONE, FLEX_START, max run ${HOURS}h"
 gcloud compute instances create "$NAME" \
   --project="$PROJECT" \
@@ -52,7 +79,16 @@ gcloud compute instances create "$NAME" \
   --image-family=ubuntu-accel-2204-amd64-tpu-v5e-v5p-v6e \
   --boot-disk-size=200GB \
   --scopes=cloud-platform \
+  ${AUTO_ARGS[@]+"${AUTO_ARGS[@]}"} \
   --async
+
+if [ "$AUTO" = --auto ]; then
+  echo "Queued. The VM runs and deletes itself once it starts; nothing else to do."
+  echo "Progress: gcloud storage cat $BUCKET/$BUCKET_PREFIX/status/$NAME.txt"
+  echo "Request state: gcloud compute instances describe $NAME --zone=$ZONE --format='value(status)'"
+  echo "Then fetch results: scripts/fetch_results.sh"
+  exit 0
+fi
 
 # Flex-start VMs stay PENDING until chips free up (up to the 2h request window).
 while true; do
