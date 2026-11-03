@@ -10,9 +10,11 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 
 RUN_ID=${1:-}
 if [ -z "$RUN_ID" ]; then
-  # Run ids start with a timestamp, so the last one listed is the newest.
-  RUN_ID=$(gcloud storage ls "$RUNS_URI/" | sed 's#/$##; s#.*/##' | sort | tail -1)
-  [ -n "$RUN_ID" ] || { echo "No runs under $RUNS_URI/" >&2; exit 1; }
+  # Newest run that has results. Run ids start with a timestamp, so sorting
+  # them is chronological; requests that never started have only scripts/.
+  RUN_ID=$(gcloud storage ls "$RUNS_URI/*/results/" 2>/dev/null \
+    | sed -n 's#^.*/runs/\([^/]*\)/results/.*#\1#p' | sort -u | tail -1)
+  [ -n "$RUN_ID" ] || { echo "No runs with results under $RUNS_URI/" >&2; exit 1; }
 fi
 echo "Run $RUN_ID"
 gcloud storage cat "$RUNS_URI/$RUN_ID/status.txt" 2>/dev/null | tail -3 || true

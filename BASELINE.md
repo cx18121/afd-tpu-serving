@@ -152,3 +152,5 @@ the profiled run is separate from the measured sweep.
 | 2026-11-02 | us-central1-a | ct6e-standard-8t | Pending 2 h 19 min, expired (`ZONE_RESOURCE_POOL_EXHAUSTED`) | 0 |
 | 2026-11-02 | us-central1-a | ct6e-standard-8t | Pending 2 h, expired (same) | 0 |
 | 2026-11-03 | us-central1-a | ct6e-standard-8t | Pending ~55 min, cancelled for the night | 0 |
+| 2026-11-03 | us-central1-a | ct6e-standard-1t (auto-mode test) | Pending 2 h 13 min, expired (same) | 0 |
+| 2026-11-03 | us-east5-b | ct6e-standard-1t (auto-mode test) | Pending 2 h 15 min, expired (same) | 0 |
