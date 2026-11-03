@@ -13,7 +13,7 @@ if [ -z "$RUN_ID" ]; then
   # Newest run that has results. Run ids start with a timestamp, so sorting
   # them is chronological; requests that never started have only scripts/.
   RUN_ID=$(gcloud storage ls "$RUNS_URI/*/results/" 2>/dev/null \
-    | sed -n 's#^.*/runs/\([^/]*\)/results/.*#\1#p' | sort -u | tail -1)
+    | sed -n 's#^.*/runs/\([^/]*\)/results/.*#\1#p' | sort -u | tail -1 || true)
   [ -n "$RUN_ID" ] || { echo "No runs with results under $RUNS_URI/" >&2; exit 1; }
 fi
 echo "Run $RUN_ID"
