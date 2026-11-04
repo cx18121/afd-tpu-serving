@@ -105,12 +105,16 @@ fi
 
 # Flex-start VMs stay PENDING until chips free up (up to the 2h request window).
 while true; do
-  status=$(gcloud compute instances describe "$NAME" --project="$PROJECT" --zone="$ZONE" \
-    --format='value(status)' 2>/dev/null || echo GONE)
+  # Only "not found" means the request is gone; other errors (network, expired
+  # login) are transient, so keep waiting.
+  if ! status=$(gcloud compute instances describe "$NAME" --project="$PROJECT" --zone="$ZONE" \
+      --format='value(status)' 2>&1); then
+    case "$status" in *"was not found"*) status=GONE ;; *) status=UNKNOWN ;; esac
+  fi
   echo "$(date +%T) $status"
   case "$status" in
     RUNNING) break ;;
-    PENDING|PROVISIONING|STAGING|"") sleep 30 ;;
+    PENDING|PROVISIONING|STAGING|UNKNOWN|"") sleep 30 ;;
     *) echo "VM did not start (status $status)." >&2; exit 1 ;;
   esac
 done
