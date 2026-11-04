@@ -10,6 +10,7 @@ IMAGE="${IMAGE:-vllm/vllm-torchtpu:v0.32.0@sha256:2c7a81cd62716779b1a4491e11c275
 
 # Project-wide chip limits from the course rules.
 MAX_V6E_CHIPS="${MAX_V6E_CHIPS:-8}"
+MAX_V5P_CHIPS="${MAX_V5P_CHIPS:-8}"
 
 # Directory on the VM that holds the compile cache, HF weights, results, and logs.
 VM_WORKDIR="${VM_WORKDIR:-/opt/afd}"
@@ -24,7 +25,7 @@ CACHE_URI="$BUCKET/$BUCKET_PREFIX/cache"
 write_config_snapshot() {
   {
     echo "# Snapshot of scripts/config.sh values, written $(date '+%F %T %Z')"
-    for v in PROJECT BUCKET BUCKET_PREFIX IMAGE MAX_V6E_CHIPS VM_WORKDIR; do
+    for v in PROJECT BUCKET BUCKET_PREFIX IMAGE MAX_V6E_CHIPS MAX_V5P_CHIPS VM_WORKDIR; do
       printf '%s=%q\n' "$v" "${!v}"
     done
     echo 'RUNS_URI="$BUCKET/$BUCKET_PREFIX/runs"'

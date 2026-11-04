@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Request a flex-start TPU v6e VM and wait until it is RUNNING.
+# Request a flex-start TPU VM (v6e or v5p) and wait until it is RUNNING.
 #
 #   scripts/create_vm.sh NAME ZONE CHIPS HOURS [--auto]
 #   scripts/create_vm.sh charlie-v6e us-east5-a 8 4
@@ -14,7 +14,8 @@
 # Override the steps with AFD_STEPS="smoke tp8_ep"; keep the VM after the run
 # with AFD_SELF_DELETE=false (then delete it yourself).
 #
-# CHIPS is 1, 4, or 8 (ct6e-standard-{1,4,8}t). HOURS sets --max-run-duration;
+# CHIPS is 1, 4, or 8 for TPU v6e (ct6e-standard-{1,4,8}t), or v5p-4 for one
+# TPU v5p host (ct5p-hightpu-4t, 4 chips, 95 GB HBM each). HOURS sets --max-run-duration;
 # the VM deletes itself (and its disk) when that runs out, so upload results
 # with teardown.sh before then. If a zone has no capacity, try us-east5-b,
 # then us-central1-a.
@@ -28,28 +29,34 @@ fi
 NAME=$1 ZONE=$2 CHIPS=$3 HOURS=$4 AUTO=${5:-}
 
 case "$CHIPS" in
-  1|4|8) MACHINE_TYPE="ct6e-standard-${CHIPS}t" ;;
-  *) echo "CHIPS must be 1, 4, or 8 (got $CHIPS)" >&2; exit 2 ;;
+  1|4|8) FAMILY=v6e N=$CHIPS MACHINE_TYPE="ct6e-standard-${CHIPS}t" ;;
+  v5p-4) FAMILY=v5p N=4 MACHINE_TYPE=ct5p-hightpu-4t ;;
+  *) echo "CHIPS must be 1, 4, 8 (v6e) or v5p-4 (got $CHIPS)" >&2; exit 2 ;;
 esac
 if ! [[ "$HOURS" =~ ^[0-9]+$ ]] || [ "$HOURS" -lt 1 ] || [ "$HOURS" -gt 8 ]; then
   echo "HOURS must be a whole number from 1 to 8 (got $HOURS)" >&2
   exit 2
 fi
 
-# Project-wide limit: count v6e chips in every non-terminated instance,
-# including PENDING requests. Refuse if the listing itself fails. This does not
-# stop two people who submit at the same moment; coordinate in the team chat.
+# Project-wide limits: count chips of this TPU family in every non-terminated
+# instance, including PENDING requests. Refuse if the listing itself fails.
+# This does not stop two people who submit at the same moment; coordinate in
+# the team chat.
 if ! listing=$(gcloud compute instances list --project="$PROJECT" \
     --filter='status!=TERMINATED' --format='value(machineType.basename())'); then
-  echo "Refusing: could not list instances to check the $MAX_V6E_CHIPS-chip limit." >&2
+  echo "Refusing: could not list instances to check the chip limits." >&2
   exit 1
 fi
 in_use=0
 while read -r mt; do
-  [[ "$mt" =~ ^ct6e-standard-([0-9]+)t$ ]] && in_use=$((in_use + BASH_REMATCH[1]))
+  case "$FAMILY:$mt" in
+    v6e:ct6e-standard-*t) n=${mt#ct6e-standard-}; in_use=$((in_use + ${n%t})) ;;
+    v5p:ct5p-hightpu-4t) in_use=$((in_use + 4)) ;;
+  esac
 done <<< "$listing"
-if [ $((in_use + CHIPS)) -gt "$MAX_V6E_CHIPS" ]; then
-  echo "Refusing: $in_use v6e chips already requested or running, +$CHIPS would exceed $MAX_V6E_CHIPS." >&2
+LIMIT=$([ "$FAMILY" = v5p ] && echo "$MAX_V5P_CHIPS" || echo "$MAX_V6E_CHIPS")
+if [ $((in_use + N)) -gt "$LIMIT" ]; then
+  echo "Refusing: $in_use $FAMILY chips already requested or running, +$N would exceed $LIMIT." >&2
   gcloud compute instances list --project="$PROJECT"
   exit 1
 fi
@@ -58,7 +65,7 @@ AUTO_ARGS=()
 if [ "$AUTO" = --auto ]; then
   case "$CHIPS" in
     8) default_steps="smoke tp8_ep dp2_tp4_ep" ;;
-    4) default_steps="smoke tp4_ep" ;;
+    4|v5p-4) default_steps="smoke tp4_ep" ;;
     1) default_steps="smoke" ;;
   esac
   STEPS=${AFD_STEPS:-$default_steps}
