@@ -64,7 +64,7 @@ case "$MODE" in
     CONCURRENCIES=$MOE_CONCURRENCIES
     NUM_PROMPTS="${NUM_PROMPTS:-200}"
     # Discarded passes that exercise small and large batches before measuring.
-    WARMUPS="1:4 128:128"
+    WARMUPS="${WARMUPS-1:4 128:128}"
     PROFILE_CONCURRENCY=16
     ;;
   *) echo "unknown mode $MODE" >&2; exit 2 ;;
@@ -82,6 +82,19 @@ upload_results() {
   timeout 600 gcloud storage rsync -r "$W/logs/" "$DEST/logs/" --quiet || echo "WARN: log upload failed"
 }
 
+# Test hook (tests/run_local_test.sh): AFD_MOCK_SERVER is a stand-in server
+# script; the container runs it instead of vllm serve, so everything else in
+# this file runs unchanged without a TPU.
+if [ -n "${AFD_MOCK_SERVER:-}" ]; then
+  # Keep torch and vLLM from loading torch_tpu, whose libraries need AVX,
+  # which emulated amd64 on Apple silicon lacks.
+  SERVER_CMD=(-e TORCH_DEVICE_BACKEND_AUTOLOAD=0 -e VLLM_PLUGINS=none
+    -v "$AFD_MOCK_SERVER:/mock_server.py:ro"
+    --entrypoint python3 "$IMAGE" /mock_server.py)
+else
+  SERVER_CMD=(--entrypoint vllm "$IMAGE" serve "$MODEL" "${SERVE_ARGS[@]}" --port $PORT)
+fi
+
 docker rm -f $CONTAINER >/dev/null 2>&1 || true
 echo "$(date -Is) starting $MODEL"
 printf '%q ' vllm serve "$MODEL" "${SERVE_ARGS[@]}" --port $PORT > "$RESULTS/serve_cmd.txt"
@@ -93,8 +106,7 @@ docker run -d --name $CONTAINER \
   -e TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT=/cache/torch_tpu_tier3 \
   -e VLLM_CACHE_ROOT=/cache/vllm \
   -e PYTHONUNBUFFERED=1 \
-  --entrypoint vllm "$IMAGE" \
-  serve "$MODEL" "${SERVE_ARGS[@]}" --port $PORT >/dev/null
+  "${SERVER_CMD[@]}" >/dev/null
 docker logs -f $CONTAINER > "$SERVER_LOG" 2>&1 &
 
 # Cold start downloads weights and compiles; allow up to 75 minutes.

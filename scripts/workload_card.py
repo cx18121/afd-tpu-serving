@@ -105,8 +105,10 @@ def main() -> None:
     card = CARD.format(
         layout=layout, run_id=run_id, tp=tp, dp=dp, ep=ep, chips=chips,
         concurrency=PROFILE_CONCURRENCY, num_prompts=2 * PROFILE_CONCURRENCY,
-        vllm=version(versions, "vllm"), plugin=version(versions, "vllm-torchtpu")
-        if "vllm-torchtpu" in versions else version(versions, "vllm_torchtpu"),
+        vllm=version(versions, "vllm"),
+        # The image installs the plugin as vllm-torchtpu-core 0.0.0, so take
+        # the release from the image tag instead.
+        plugin=(re.search(r"vllm-torchtpu:(v[\w.]+)", versions) or [None, "unknown"])[1],
         libtpu=version(versions, "libtpu"),
     )
     (d / "workload_card.yaml").write_text(card)

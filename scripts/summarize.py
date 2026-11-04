@@ -14,6 +14,7 @@ from pathlib import Path
 # (csv column, key in the vllm bench serve JSON)
 METRICS = [
     ("completed", "completed"),
+    ("failed", "failed"),  # nonzero means errors; check the server log
     ("duration_s", "duration"),
     ("request_throughput_req_s", "request_throughput"),
     ("output_throughput_tok_s", "output_throughput"),
@@ -50,6 +51,10 @@ def main() -> None:
     if not rows:
         sys.exit(f"no <layout>/colocated_c*.json under {root}")
     rows.sort(key=lambda r: (r["layout"], r["concurrency"]))
+    for r in rows:
+        if r.get("failed"):
+            print(f"WARNING: {r['layout']} c={r['concurrency']} had {r['failed']} failed requests",
+                  file=sys.stderr)
     out = root / "summary.csv"
     with out.open("w", newline="") as fh:
         w = csv.DictWriter(fh, COLUMNS)
