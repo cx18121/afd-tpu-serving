@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Request a flex-start TPU VM (v6e or v5p) and wait until it is RUNNING.
 #
-#   scripts/create_vm.sh NAME ZONE CHIPS HOURS [--auto]
+#   scripts/create_vm.sh NAME ZONE CHIPS HOURS [--auto] [--spot]
 #   scripts/create_vm.sh charlie-v6e us-east5-a 8 4
 #   scripts/create_vm.sh charlie-v6e us-east5-a 8 4 --auto
 #
@@ -14,6 +14,10 @@
 # Override the steps with AFD_STEPS="smoke tp8_ep"; keep the VM after the run
 # with AFD_SELF_DELETE=false (then delete it yourself).
 #
+# --spot requests a Spot VM instead of flex-start. Spot does not queue: it
+# starts at once or fails at once (exit 3 on a stockout), so retry it. Google
+# can reclaim a Spot VM at any time; finished results are already uploaded.
+#
 # CHIPS is 1, 4, or 8 for TPU v6e (ct6e-standard-{1,4,8}t), or v5p-4 for one
 # TPU v5p host (ct5p-hightpu-4t, 4 chips, 95 GB HBM each). HOURS sets --max-run-duration;
 # the VM deletes itself (and its disk) when that runs out, so upload results
@@ -22,11 +26,18 @@
 set -euo pipefail
 source "$(dirname "$0")/config.sh"
 
-if [ $# -lt 4 ] || [ $# -gt 5 ] || { [ $# -eq 5 ] && [ "$5" != --auto ]; }; then
-  echo "usage: $0 NAME ZONE CHIPS HOURS [--auto]" >&2
-  exit 2
-fi
-NAME=$1 ZONE=$2 CHIPS=$3 HOURS=$4 AUTO=${5:-}
+usage() { echo "usage: $0 NAME ZONE CHIPS HOURS [--auto] [--spot]" >&2; exit 2; }
+[ $# -ge 4 ] || usage
+NAME=$1 ZONE=$2 CHIPS=$3 HOURS=$4
+shift 4
+AUTO="" SPOT=""
+for opt in "$@"; do
+  case "$opt" in
+    --auto) AUTO=--auto ;;
+    --spot) SPOT=--spot ;;
+    *) usage ;;
+  esac
+done
 
 case "$CHIPS" in
   1|4|8) FAMILY=v6e N=$CHIPS MACHINE_TYPE="ct6e-standard-${CHIPS}t" ;;
@@ -85,13 +96,22 @@ if [ "$AUTO" = --auto ]; then
   echo "Auto mode: run $RUN_ID, steps '$STEPS', forced cleanup after ${DEADLINE_MIN} min"
 fi
 
-echo "Requesting $NAME: $MACHINE_TYPE in $ZONE, FLEX_START, max run ${HOURS}h"
-gcloud compute instances create "$NAME" \
+if [ "$SPOT" = --spot ]; then
+  MODEL_ARGS=(--provisioning-model=SPOT)
+  ASYNC=()  # Spot answers within seconds; wait so a stockout shows up here.
+  MODEL_NAME=SPOT
+else
+  MODEL_ARGS=(--provisioning-model=FLEX_START --request-valid-for-duration=2h)
+  ASYNC=(--async)
+  MODEL_NAME=FLEX_START
+fi
+
+echo "Requesting $NAME: $MACHINE_TYPE in $ZONE, $MODEL_NAME, max run ${HOURS}h"
+if ! out=$(gcloud compute instances create "$NAME" \
   --project="$PROJECT" \
   --zone="$ZONE" \
   --machine-type="$MACHINE_TYPE" \
-  --provisioning-model=FLEX_START \
-  --request-valid-for-duration=2h \
+  "${MODEL_ARGS[@]}" \
   --max-run-duration="${HOURS}h" \
   --instance-termination-action=DELETE \
   --maintenance-policy=TERMINATE \
@@ -100,10 +120,16 @@ gcloud compute instances create "$NAME" \
   --boot-disk-size=200GB \
   --scopes=cloud-platform \
   ${AUTO_ARGS[@]+"${AUTO_ARGS[@]}"} \
-  --async
+  ${ASYNC[@]+"${ASYNC[@]}"} 2>&1); then
+  echo "$out" >&2
+  case "$out" in *STOCKOUT*|*RESOURCE_POOL_EXHAUSTED*|*"does not have enough resources"*) exit 3 ;; esac
+  exit 1
+fi
+echo "$out" | grep -v '^$' | tail -3
 
 if [ "$AUTO" = --auto ]; then
-  echo "Queued. The VM runs and deletes itself once it starts; nothing else to do."
+  if [ "$SPOT" = --spot ]; then echo "Spot VM created. It runs and deletes itself; nothing else to do."
+  else echo "Queued. The VM runs and deletes itself once it starts; nothing else to do."; fi
   echo "Request state: gcloud compute instances describe $NAME --zone=$ZONE --format='value(status)'"
   echo "Progress once running: gcloud storage cat $RUN_URI/status.txt"
   echo "Results when done: scripts/fetch_results.sh $RUN_ID"
