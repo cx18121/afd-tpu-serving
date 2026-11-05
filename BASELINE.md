@@ -112,6 +112,21 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
   `VLLM_CACHE_ROOT` (Python-side artifacts). Both point at
   `/opt/afd/cache` on the VM, which is synced to
   `gs://cs5470-fa26-team27-data/colocated/cache/` (shared by all runs).
+- **Getting TPUs is the hard part.** From 2026-11-02 to 11-05, every
+  flex-start request in the program zones (us-east5-a, us-east5-b,
+  us-central1-a; 1, 4, and 8 v6e chips; 4 v5p chips) expired with
+  `ZONE_RESOURCE_POOL_EXHAUSTED` (`reason: stockout`), and about 200 Spot
+  probes in those zones failed the same way. That error is capacity, not
+  quota. The first VM came from a 1-chip Spot probe in **asia-south1-b**
+  after probing all 20 v6e zones. Our `TPUS_PER_TPU_FAMILY` quota allows 48
+  v6e chips in europe-west4, asia-east1, asia-northeast1, asia-south1,
+  asia-southeast1, southamerica-east1/west1, and us-south1, and 0 in us-east4.
+  Course rules still cap the project at 8 v6e chips at once.
+- **First real run (Qwen3-0.6B smoke test, asia-south1-b):** setup took
+  about 2 minutes, the server was healthy after 271 s (download + compile),
+  and all four greedy replies were correct. The sanity check wrongly failed
+  "1,2,...,30" because it expected spaces after commas; it now ignores
+  spacing. The VM uploaded its logs and deleted itself as designed.
 - Possibly relevant, not yet hit: concurrent cold compiles sharing one cache
   can collide (#1566, may affect the DP=2 layout), and a warm start may not
   be much faster than a cold one (#1644).
@@ -154,3 +169,5 @@ the profiled run is separate from the measured sweep.
 | 2026-11-03 | us-central1-a | ct6e-standard-8t | Pending ~55 min, cancelled for the night | 0 |
 | 2026-11-03 | us-central1-a | ct6e-standard-1t (auto-mode test) | Pending 2 h 13 min, expired (same) | 0 |
 | 2026-11-03 | us-east5-b | ct6e-standard-1t (auto-mode test) | Pending 2 h 15 min, expired (same) | 0 |
+| 2026-11-04 to 05 | program zones | flex v6e-1 x3, v5p-4 x2, Spot v6e-1 | Re-queued every 2 h, ~200 Spot stockouts | 0 |
+| 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 8 min; smoke failed on a too-strict check; self-deleted | 0.13 |

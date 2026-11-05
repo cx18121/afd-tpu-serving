@@ -151,7 +151,9 @@ for prompt, expect in cases:
     req = urllib.request.Request(f"http://localhost:{port}/v1/chat/completions",
                                  json.dumps(body).encode(), {"Content-Type": "application/json"})
     reply = json.load(urllib.request.urlopen(req, timeout=300))["choices"][0]["message"]["content"]
-    passed = expect.lower() in reply.lower()
+    # Ignore spacing and case: "28,29,30" and "28, 29, 30" are both right.
+    squash = lambda t: "".join(t.lower().split())
+    passed = squash(expect) in squash(reply)
     ok &= passed
     results.append({"prompt": prompt, "expect": expect, "reply": reply, "pass": passed})
     print(("PASS" if passed else "FAIL"), repr(prompt), "->", repr(reply[:300]))
