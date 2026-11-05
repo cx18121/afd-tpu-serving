@@ -7,7 +7,7 @@ description: >
   32 prompts, 1024 input / 256 output tokens, after the measured
   (unprofiled) sweep. CS 5470 Team 27.
 hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
-trace_url: gs://cs5470-fa26-team27-data/colocated/runs/20261105-134448-charlie-spot-asia-south1-c/profile/tp8_ep/
+trace_url: gs://cs5470-fa26-team27-data/colocated/runs/20261105-150348-charlie-spot-asia-south1-c/profile/tp8_ep/
 contributor: Charlie Xue
 contact: cx267@cornell.edu
 

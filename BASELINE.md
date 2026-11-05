@@ -4,10 +4,10 @@ This is the "before" point for the AFD study. Attention and experts share the
 same 8 TPU v6e chips. AFD will be compared against it at the same model,
 workload, and chip budget.
 
-> Status: first full run done on 2026-11-05 (run
-> `20261105-134448-charlie-spot-asia-south1-c`, 8 v6e chips, Spot,
-> asia-south1-c). Open items: repeat the suspect TP=8 c=32 point, and re-take
-> the DP=2 profile, which the disk-full error cut short.
+> Status: done. Reference run `20261105-150348-charlie-spot-asia-south1-c`
+> (8 v6e chips, Spot, asia-south1-c, 2026-11-05): both layouts, every sweep
+> run twice, profile traces for both. One open question: TP=8 at c=32 is
+> unstable (see Results).
 
 ## Run it
 
@@ -150,32 +150,40 @@ Package versions inside the image are recorded per run in `versions.txt`.
 ## Results
 
 Qwen3-30B-A3B, 8 x TPU v6e, 1024 input / 256 output tokens, 200 prompts per
-point, every point 200/200 completed and 0 failed. Full table:
+point, each sweep run twice on one VM; values are the mean of the two runs.
+Every point completed 200/200 requests with 0 failures, and both layouts
+passed the greedy sanity check. Full table with p99s and min/max:
 `results/colocated/summary.csv`. Per-user tok/s is 1000 / mean TPOT, the
 decode speed one user sees.
 
 | Concurrency | TP=8+EP output tok/s | per-user tok/s | mean TTFT | DP=2xTP=4+EP output tok/s | per-user tok/s | mean TTFT |
 |---|---|---|---|---|---|---|
-| 1 | **183** | **188** | 39 ms | 142 | 146 | 52 ms |
-| 4 | **665** | **177** | 95 ms | 556 | 148 | 122 ms |
-| 8 | **1,195** | **162** | 137 ms | 1,000 | 138 | 205 ms |
-| 16 | **2,116** | **153** | 200 ms | 1,729 | 126 | 273 ms |
-| 32 | 1,856 (suspect) | 65 | 305 ms | **2,862** | **112** | 355 ms |
-| 64 | **3,997** | 78 | 372 ms | 3,829 | **78** | 520 ms |
-| 128 | 5,264 | 58 | 928 ms | **5,624** | **64** | 995 ms |
+| 1 | **183** | **188** | 40 ms | 142 | 146 | 52 ms |
+| 4 | **665** | **176** | 95 ms | 559 | 149 | 113 ms |
+| 8 | **1,205** | **163** | 131 ms | 1,012 | 139 | 194 ms |
+| 16 | **2,116** | **152** | 197 ms | 1,726 | 127 | 279 ms |
+| 32 | 2,341 (unstable: 1,789 to 2,893) | 79 | 271 ms | **2,839** | **111** | 365 ms |
+| 64 | **4,060** | 79 | 387 ms | 3,996 | **83** | 518 ms |
+| 128 | 5,204 | 57 | 924 ms | **5,485** | **62** | 1,004 ms |
 
-- TP=8 is faster per user up to c=16; two TP=4 replicas give more total
-  throughput at c=32 and c=128. The colocated frontier uses the better layout
-  at each point.
-- The TP=8 c=32 point is suspect: lower throughput than c=16, and mean TPOT
-  (15.3 ms) far above median (9.3 ms), so a few requests stalled. The server
-  log shows no compiles and low KV use. Repeat it before using it.
-- p99 inter-token latency rises to 34 to 126 ms at c >= 16 in both layouts,
-  likely because new prompts (prefill) share steps with ongoing decodes.
-- Server startup (weights download + compile, cold cache): 977 s for TP=8,
-  781 s for DP=2xTP=4.
-- Measured on Spot capacity in asia-south1-c; one run per point, so run-to-run
-  variance is not yet known.
+- **Reproducible.** The two runs of each point agree within 1 to 4%, except
+  TP=8 at c=32. The first full run (`20261105-134448-...`) matched too.
+- **Which layout wins.** TP=8 is faster per user up to c=16 and about tied at
+  c=64; two TP=4 replicas win at c=32 and c=128. The colocated frontier takes
+  the better layout at each point.
+- **TP=8 at c=32 is unstable.** Across three runs it gave 1,856, 1,789, and
+  2,893 output tok/s. In the slow runs at least 10% of requests decoded about
+  5x slower (p90 TPOT 52 ms vs a 9.5 ms median); in the fast run all requests
+  ran at ~9.5 ms. The server log shows no compiles and KV use under 5%. No
+  matching open vllm-torchtpu issue found (searched 2026-11-05). A profile at
+  c=32 would be the next diagnostic step.
+- **Tail latency.** p99 inter-token latency rises to 34 to 127 ms at c >= 16
+  (c >= 32 for DP=2), likely because new prompts (prefill) share steps with
+  ongoing decodes. Relevant for AFD, which changes how that work is placed.
+- **Startup** (weights download + compile, no cache): 917 s for TP=8, 811 s
+  for DP=2xTP=4.
+- Measured on Spot capacity in asia-south1-c, far from the us-east5 bucket;
+  location does not affect on-chip numbers.
 
 ## Outputs
 
@@ -184,7 +192,7 @@ decode speed one user sees.
 | Everything from one run | `gs://cs5470-fa26-team27-data/colocated/runs/<run id>/` (results, profile, logs, status.txt) |
 | Per-run benchmark JSON | `results/colocated/<layout>/colocated_c<N>.json` (copied by `fetch_results.sh`) |
 | Summary | `results/colocated/summary.csv` |
-| Profile traces (c=16, separate unmeasured run) | `runs/<run id>/profile/<layout>/` |
+| Profile traces (c=16, separate unmeasured run) | `runs/<run id>/profile/<layout>/`; reference: `runs/20261105-150348-charlie-spot-asia-south1-c/profile/{tp8_ep,dp2_tp4_ep}/` (3.5 GB, 3.8 GB) |
 | CCL-Bench workload card | `results/colocated/<layout>/workload_card.yaml` |
 | Server and benchmark logs | `runs/<run id>/logs/` |
 | Compile cache | Not kept by default; with `KEEP_CACHE=true`, `gs://cs5470-fa26-team27-data/colocated/cache/` |
@@ -207,5 +215,8 @@ the profiled run is separate from the measured sweep.
 | 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 8 min; smoke failed on a too-strict check; self-deleted | 0.13 |
 | 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 9 min; smoke passed end to end; self-deleted | 0.15 |
 | 2026-11-05 | asia-south1-c | ct6e-standard-8t Spot (full baseline) | Ran 73 min; both layouts measured; disk full in last profile; self-deleted | 9.7 |
+| 2026-11-05 | asia-south1-c | ct6e-standard-8t Spot (repeat run, 300 GB disk) | Ran 92 min; both layouts x2 repeats + both profiles; self-deleted | 12.3 |
 
-Total so far: about 10 v6e chip-hours.
+Total: about 22 v6e chip-hours (roughly $30 at the $1.35/chip-hour flex price;
+Spot list price may differ), plus an estimated $9 to $13 for one 112 GB
+cross-region cache upload, since deleted.
