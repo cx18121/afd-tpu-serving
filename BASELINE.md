@@ -15,7 +15,25 @@ You need `gcloud` logged in with access to project `cs5470-fa26-team27`.
 Ask the team before creating a VM: the project allows at most 8 v6e chips at
 once, and an 8-chip VM uses all of them.
 
-### Hands-off (`--auto`)
+### Recommended: find Spot capacity and run hands-off
+
+TPU capacity is scarce: in early November the program's flex-start zones had
+none for days. This is what produced the results below.
+
+```bash
+scripts/launch_spot.sh 8 4        # 8 v6e chips, 4 h cap: smoke, tp8_ep, dp2_tp4_ep
+scripts/fetch_results.sh          # after it reports the VM is gone
+gcloud compute instances list     # confirm nothing is left
+```
+
+`launch_spot.sh` tries Spot zone after zone (asia-south1 first, where we
+found capacity) until a VM starts, then follows the run until the VM deletes
+itself. Searching needs your laptop awake and gcloud logged in; once a VM
+starts, it finishes on its own. Google can reclaim a Spot VM at any time;
+finished benchmarks are uploaded as they complete. Run
+`scripts/launch_spot.sh 1 1 smoke` first for a cheap end-to-end check.
+
+### Hands-off with a specific zone (`--auto`)
 
 The VM runs everything itself once it starts and deletes itself at the end,
 so you can close your laptop right after the request is queued.
