@@ -1,0 +1,1 @@
+vllm serve Qwen/Qwen3-0.6B --tensor-parallel-size 1 --max-model-len 4096 --max-num-batched-tokens 4096 --max-num-seqs 16 --gpu-memory-utilization 0.90 --async-scheduling --no-enable-prefix-caching --port 8000 

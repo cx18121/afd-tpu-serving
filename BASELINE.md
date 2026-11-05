@@ -4,8 +4,10 @@ This is the "before" point for the AFD study. Attention and experts share the
 same 8 TPU v6e chips. AFD will be compared against it at the same model,
 workload, and chip budget.
 
-> Status: scripts ready, waiting for TPU capacity. Results, versions, and
-> problems below are filled in after the first run.
+> Status: first full run done on 2026-11-05 (run
+> `20261105-134448-charlie-spot-asia-south1-c`, 8 v6e chips, Spot,
+> asia-south1-c). Open items: repeat the suspect TP=8 c=32 point, and re-take
+> the DP=2 profile, which the disk-full error cut short.
 
 ## Run it
 
@@ -127,6 +129,11 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
   and all four greedy replies were correct. The sanity check wrongly failed
   "1,2,...,30" because it expected spaces after commas; it now ignores
   spacing. The VM uploaded its logs and deleted itself as designed.
+- **Disk full during the DP=2 profile run.** The compile cache for the two
+  layouts reached 112 GB; with the 61 GB model, two profile traces (6 GB),
+  and the image, the 200 GB disk filled. The DP=2 sweep had already finished,
+  but its profile trace is incomplete. Fix pending (bigger disk or not
+  keeping the cache, see below).
 - Possibly relevant, not yet hit: concurrent cold compiles sharing one cache
   can collide (#1566, may affect the DP=2 layout), and a warm start may not
   be much faster than a cold one (#1644).
@@ -140,8 +147,33 @@ Package versions inside the image are recorded per run in `versions.txt`.
 
 ## Results
 
-TBD after the first run. Full table: `results/colocated/summary.csv`.
-`per_user_tok_s` is 1000 / mean TPOT, the decode speed one user sees.
+Qwen3-30B-A3B, 8 x TPU v6e, 1024 input / 256 output tokens, 200 prompts per
+point, every point 200/200 completed and 0 failed. Full table:
+`results/colocated/summary.csv`. Per-user tok/s is 1000 / mean TPOT, the
+decode speed one user sees.
+
+| Concurrency | TP=8+EP output tok/s | per-user tok/s | mean TTFT | DP=2xTP=4+EP output tok/s | per-user tok/s | mean TTFT |
+|---|---|---|---|---|---|---|
+| 1 | **183** | **188** | 39 ms | 142 | 146 | 52 ms |
+| 4 | **665** | **177** | 95 ms | 556 | 148 | 122 ms |
+| 8 | **1,195** | **162** | 137 ms | 1,000 | 138 | 205 ms |
+| 16 | **2,116** | **153** | 200 ms | 1,729 | 126 | 273 ms |
+| 32 | 1,856 (suspect) | 65 | 305 ms | **2,862** | **112** | 355 ms |
+| 64 | **3,997** | 78 | 372 ms | 3,829 | **78** | 520 ms |
+| 128 | 5,264 | 58 | 928 ms | **5,624** | **64** | 995 ms |
+
+- TP=8 is faster per user up to c=16; two TP=4 replicas give more total
+  throughput at c=32 and c=128. The colocated frontier uses the better layout
+  at each point.
+- The TP=8 c=32 point is suspect: lower throughput than c=16, and mean TPOT
+  (15.3 ms) far above median (9.3 ms), so a few requests stalled. The server
+  log shows no compiles and low KV use. Repeat it before using it.
+- p99 inter-token latency rises to 34 to 126 ms at c >= 16 in both layouts,
+  likely because new prompts (prefill) share steps with ongoing decodes.
+- Server startup (weights download + compile, cold cache): 977 s for TP=8,
+  781 s for DP=2xTP=4.
+- Measured on Spot capacity in asia-south1-c; one run per point, so run-to-run
+  variance is not yet known.
 
 ## Outputs
 
@@ -171,3 +203,7 @@ the profiled run is separate from the measured sweep.
 | 2026-11-03 | us-east5-b | ct6e-standard-1t (auto-mode test) | Pending 2 h 15 min, expired (same) | 0 |
 | 2026-11-04 to 05 | program zones | flex v6e-1 x3, v5p-4 x2, Spot v6e-1 | Re-queued every 2 h, ~200 Spot stockouts | 0 |
 | 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 8 min; smoke failed on a too-strict check; self-deleted | 0.13 |
+| 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 9 min; smoke passed end to end; self-deleted | 0.15 |
+| 2026-11-05 | asia-south1-c | ct6e-standard-8t Spot (full baseline) | Ran 73 min; both layouts measured; disk full in last profile; self-deleted | 9.7 |
+
+Total so far: about 10 v6e chip-hours.

@@ -1,0 +1,29 @@
+{
+  "all_pass": true,
+  "cases": [
+    {
+      "prompt": "What is the capital of France? Answer in one word.",
+      "expect": "Paris",
+      "reply": "Paris",
+      "pass": true
+    },
+    {
+      "prompt": "What is 17 * 23? Reply with just the number.",
+      "expect": "391",
+      "reply": "17 * 23 = 391.",
+      "pass": true
+    },
+    {
+      "prompt": "Count from 1 to 30, separated by commas and spaces. Output only the numbers.",
+      "expect": "27, 28, 29, 30",
+      "reply": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30",
+      "pass": true
+    },
+    {
+      "prompt": "Explain in three sentences why the sky is blue.",
+      "expect": "scatter",
+      "reply": "The sky appears blue because of the way sunlight interacts with the Earth's atmosphere. When sunlight passes through the atmosphere, it scatters the shorter wavelengths (blue light) more than longer wavelengths (red and orange light). This scattering causes the blue light to be scattered more, making the sky appear blue.",
+      "pass": true
+    }
+  ]
+}

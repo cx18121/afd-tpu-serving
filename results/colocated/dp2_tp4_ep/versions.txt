@@ -1,0 +1,11 @@
+image: vllm/vllm-torchtpu:v0.32.0@sha256:2c7a81cd62716779b1a4491e11c2758fa2e76196b40178260c85115e4ff7298e
+image id: sha256:2c7a81cd62716779b1a4491e11c2758fa2e76196b40178260c85115e4ff7298e
+jax                                      0.11.2
+jaxlib                                   0.11.2
+libtpu                                   0.0.50
+torch                                    2.13.0+cpu
+torch_tpu                                0.2.0
+torchvision                              0.28.0+cpu
+transformers                             5.19.0
+vllm                                     0.32.0+empty
+vllm-torchtpu-core                       0.0.0
