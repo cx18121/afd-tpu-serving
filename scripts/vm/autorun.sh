@@ -26,9 +26,11 @@ status() {
 }
 
 finish() {
-  status "uploading compile cache"
-  timeout 1500 gcloud storage rsync -r "$VM_WORKDIR/cache/" "$CACHE_URI/" --quiet \
-    || status "WARN cache upload failed or timed out"
+  if [ "$KEEP_CACHE" = true ]; then
+    status "uploading compile cache"
+    timeout 1500 gcloud storage rsync -r "$VM_WORKDIR/cache/" "$CACHE_URI/" --quiet \
+      || status "WARN cache upload failed or timed out"
+  fi
   status "final upload, then deleting VM"
   /usr/local/bin/afd-cleanup
 }

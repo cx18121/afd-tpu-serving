@@ -22,7 +22,9 @@ mkdir -p "$VM_WORKDIR"/{cache,hf,results,profile,logs}
 echo "Run id: $(cat "$VM_WORKDIR/run_id")"
 
 # Restore the compile cache from earlier runs, if any.
-if gcloud storage ls "$CACHE_URI/" >/dev/null 2>&1; then
+if [ "$KEEP_CACHE" != true ]; then
+  echo "KEEP_CACHE=false: compiling from scratch (about 13-16 minutes per layout)."
+elif gcloud storage ls "$CACHE_URI/" >/dev/null 2>&1; then
   echo "Restoring compile cache from $CACHE_URI/"
   timeout 1200 gcloud storage rsync -r "$CACHE_URI/" "$VM_WORKDIR/cache/" \
     || echo "WARN: cache restore failed or timed out; compiling from scratch"

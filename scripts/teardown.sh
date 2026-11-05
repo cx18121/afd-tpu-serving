@@ -24,7 +24,7 @@ if gcloud compute instances describe "$NAME" --project="$PROJECT" --zone="$ZONE"
       for d in results profile logs; do
         if [ -d $VM_WORKDIR/\$d ]; then sudo gcloud storage rsync -r $VM_WORKDIR/\$d/ \$run_uri/\$d/ --quiet; fi
       done
-      sudo gcloud storage rsync -r $VM_WORKDIR/cache/ $CACHE_URI/ --quiet
+      if [ $KEEP_CACHE = true ]; then sudo gcloud storage rsync -r $VM_WORKDIR/cache/ $CACHE_URI/ --quiet; fi
       echo \"Uploaded to \$run_uri\"
       sudo du -sh $VM_WORKDIR/* 2>/dev/null || true"; then
     read -r -p "Upload failed. Delete $NAME anyway? [y/N] " ans

@@ -178,10 +178,15 @@ for w in $WARMUPS; do
   rm -f "$RESULTS/warmup_c${w%%:*}.json"
 done
 
-for c in $CONCURRENCIES; do
-  echo "$(date -Is) benchmark c=$c n=$NUM_PROMPTS"
-  bench "$c" "$NUM_PROMPTS" "colocated_c$c" 2>&1 | tee "$W/logs/${MODE}_c$c.log"
-  upload_results
+# Repeat the whole sweep (not each point back to back) so slow drift shows up
+# as spread between repeats instead of hiding inside one point.
+RUNS=$([ "$MODE" = smoke ] && echo 1 || echo "${REPEATS:-1}")
+for r in $(seq 1 "$RUNS"); do
+  for c in $CONCURRENCIES; do
+    echo "$(date -Is) benchmark c=$c n=$NUM_PROMPTS repeat $r/$RUNS"
+    bench "$c" "$NUM_PROMPTS" "colocated_c${c}_r$r" 2>&1 | tee "$W/logs/${MODE}_c${c}_r$r.log"
+    upload_results
+  done
 done
 
 if [ -n "$PROFILE_CONCURRENCY" ]; then

@@ -117,7 +117,7 @@ if ! out=$(gcloud compute instances create "$NAME" \
   --maintenance-policy=TERMINATE \
   --image-project=ubuntu-os-accelerator-images \
   --image-family=ubuntu-accel-2204-amd64-tpu-v5e-v5p-v6e \
-  --boot-disk-size=200GB \
+  --boot-disk-size="${DISK_GB}GB" \
   --scopes=cloud-platform \
   ${AUTO_ARGS[@]+"${AUTO_ARGS[@]}"} \
   ${ASYNC[@]+"${ASYNC[@]}"} 2>&1); then

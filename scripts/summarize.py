@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Collect vllm bench serve results into summary.csv, one row per layout and
-concurrency level.
+"""Collect vllm bench serve results into summary.csv: one row per layout and
+concurrency level, averaged over repeats.
 
 usage: scripts/summarize.py results/colocated
-Reads results/colocated/<layout>/colocated_c<N>.json.
+Reads results/colocated/<layout>/colocated_c<N>[_r<K>].json.
 """
 import csv
 import json
 import re
+import statistics
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 # (csv column, key in the vllm bench serve JSON)
@@ -30,38 +32,45 @@ METRICS = [
     ("mean_e2el_ms", "mean_e2el_ms"),
 ]
 # per_user_tok_s = 1000 / mean TPOT: the decode speed one user sees.
-COLUMNS = ["layout", "chips", "concurrency", "per_user_tok_s"] + [c for c, _ in METRICS]
+# output_tok_s_min/max: spread across repeats, to judge noise.
+COLUMNS = (["layout", "chips", "concurrency", "repeats", "per_user_tok_s"]
+           + [c for c, _ in METRICS] + ["output_tok_s_min", "output_tok_s_max"])
 CHIPS = {"tp8_ep": 8, "dp2_tp4_ep": 8, "tp4_ep": 4}
+NAME = re.compile(r"^colocated_c(\d+)(?:_r(\d+))?\.json$")
 
 
 def main() -> None:
     root = Path(sys.argv[1])
-    rows = []
+    runs = defaultdict(list)  # (layout, concurrency) -> [result dict]
     for f in sorted(root.glob("*/colocated_c*.json")):
-        r = json.loads(f.read_text())
-        layout = f.parent.name
-        row = {
-            "layout": layout,
-            "chips": CHIPS.get(layout, ""),
-            "concurrency": int(re.search(r"_c(\d+)\.json$", f.name).group(1)),
-            "per_user_tok_s": 1000.0 / r["mean_tpot_ms"] if r.get("mean_tpot_ms") else None,
-        }
-        row.update({col: r.get(key) for col, key in METRICS})
-        rows.append(row)
-    if not rows:
+        m = NAME.match(f.name)
+        if m:
+            runs[(f.parent.name, int(m.group(1)))].append(json.loads(f.read_text()))
+    if not runs:
         sys.exit(f"no <layout>/colocated_c*.json under {root}")
-    rows.sort(key=lambda r: (r["layout"], r["concurrency"]))
-    for r in rows:
-        if r.get("failed"):
-            print(f"WARNING: {r['layout']} c={r['concurrency']} had {r['failed']} failed requests",
-                  file=sys.stderr)
-    out = root / "summary.csv"
-    with out.open("w", newline="") as fh:
+
+    rows = []
+    for (layout, c), results in sorted(runs.items()):
+        row = {"layout": layout, "chips": CHIPS.get(layout, ""), "concurrency": c,
+               "repeats": len(results)}
+        for col, key in METRICS:
+            vals = [r[key] for r in results if r.get(key) is not None]
+            row[col] = statistics.mean(vals) if vals else None
+        if row["mean_tpot_ms"]:
+            row["per_user_tok_s"] = 1000.0 / row["mean_tpot_ms"]
+        out = [r["output_throughput"] for r in results]
+        row["output_tok_s_min"], row["output_tok_s_max"] = min(out), max(out)
+        if row["failed"]:
+            print(f"WARNING: {layout} c={c} had failed requests", file=sys.stderr)
+        rows.append(row)
+
+    out_path = root / "summary.csv"
+    with out_path.open("w", newline="") as fh:
         w = csv.DictWriter(fh, COLUMNS)
         w.writeheader()
         for row in rows:
             w.writerow({k: round(v, 3) if isinstance(v, float) else v for k, v in row.items()})
-    print(out.read_text())
+    print(out_path.read_text())
 
 
 if __name__ == "__main__":

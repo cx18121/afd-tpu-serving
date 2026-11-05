@@ -112,8 +112,10 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
   but the v0.32.0 source never reads it. The compile cache is controlled by
   `TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT` (compiled TPU binaries) and
   `VLLM_CACHE_ROOT` (Python-side artifacts). Both point at
-  `/opt/afd/cache` on the VM, which is synced to
-  `gs://cs5470-fa26-team27-data/colocated/cache/` (shared by all runs).
+  `/opt/afd/cache` on the VM. The cache is not kept between VMs by default
+  (`KEEP_CACHE=false` in `scripts/config.sh`): for both layouts it reached
+  112 GB, copying it across regions costs about $9 or more each way, and a
+  cold start only takes 13 to 16 minutes.
 - **Getting TPUs is the hard part.** From 2026-11-02 to 11-05, every
   flex-start request in the program zones (us-east5-a, us-east5-b,
   us-central1-a; 1, 4, and 8 v6e chips; 4 v5p chips) expired with
@@ -132,8 +134,8 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
 - **Disk full during the DP=2 profile run.** The compile cache for the two
   layouts reached 112 GB; with the 61 GB model, two profile traces (6 GB),
   and the image, the 200 GB disk filled. The DP=2 sweep had already finished,
-  but its profile trace is incomplete. Fix pending (bigger disk or not
-  keeping the cache, see below).
+  but its profile trace is incomplete. Fixed: the disk is now 300 GB and the
+  cache is no longer uploaded (the 112 GB copy was deleted from the bucket).
 - Possibly relevant, not yet hit: concurrent cold compiles sharing one cache
   can collide (#1566, may affect the DP=2 layout), and a warm start may not
   be much faster than a cold one (#1644).
@@ -185,7 +187,7 @@ decode speed one user sees.
 | Profile traces (c=16, separate unmeasured run) | `runs/<run id>/profile/<layout>/` |
 | CCL-Bench workload card | `results/colocated/<layout>/workload_card.yaml` |
 | Server and benchmark logs | `runs/<run id>/logs/` |
-| Compile cache | `gs://cs5470-fa26-team27-data/colocated/cache/` |
+| Compile cache | Not kept by default; with `KEEP_CACHE=true`, `gs://cs5470-fa26-team27-data/colocated/cache/` |
 
 Profiling costs about 11% TTFT and 4% throughput (vllm-torchtpu docs), so
 the profiled run is separate from the measured sweep.
