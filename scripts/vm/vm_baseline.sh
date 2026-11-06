@@ -22,13 +22,16 @@ mkdir -p "$W/logs"
 echo RUNNING > "$STATUS_FILE"
 trap 'echo FAILED > "$STATUS_FILE"; docker rm -f $CONTAINER >/dev/null 2>&1 || true' ERR
 
-# Benchmark protocol (see BASELINE.md):
-# - random-token prompts, input:output target lengths from WORKLOADS, each
-#   length drawn uniformly from [0.8*L, L] (InferenceX convention);
-# - per concurrency c, max(5*c, 40) prompts (about 5 full waves), unless
-#   NUM_PROMPTS is set;
-# - GSM8K (5-shot, lm-eval) and one real-text ShareGPT point per layout.
-WORKLOADS="${WORKLOADS:-1024:256 1024:1024}"
+# Benchmark protocol (see BASELINE.md). Defaults are the protocol all results
+# so far use: random tokens, exactly 1024 in / 256 out, 200 prompts per point,
+# plus GSM8K accuracy. Options for a later, fuller round:
+#   WORKLOADS="1024:256 1024:1024"  more input:output pairs
+#   LENGTHS=range                   lengths uniform in [0.8*L, L] (InferenceX)
+#   NUM_PROMPTS=auto                max(5*c, 40) prompts, ~5 full waves
+#   SHAREGPT=1                      one real-text point at c=64
+#   SWEEP=0                         skip the sweep (e.g. GSM8K-only sessions)
+WORKLOADS="${WORKLOADS:-1024:256}"
+LENGTHS="${LENGTHS:-exact}"
 
 # Settings shared by every Qwen3-30B-A3B layout. This is the v6e recipe from
 # the vllm-torchtpu docs, except:
@@ -77,8 +80,8 @@ case "$MODE" in
                   PIN_HEADER="X-data-parallel-rank=0" ;;
     esac
     CONCURRENCIES=$MOE_CONCURRENCIES
-    NUM_PROMPTS="${NUM_PROMPTS:-}"   # empty: max(5*c, 40)
-    RUN_EXTRAS=1                     # GSM8K + ShareGPT point
+    NUM_PROMPTS="${NUM_PROMPTS:-200}"
+    RUN_EXTRAS=1                     # GSM8K (+ ShareGPT if SHAREGPT=1)
     # Discarded passes that exercise small and large batches before measuring.
     WARMUPS="${WARMUPS-1:4 128:128}"
     PROFILE_CONCURRENCY=16
@@ -226,12 +229,17 @@ fi
 
 bench() {  # bench ISL OSL CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
   local isl=$1 osl=$2 c=$3 n=$4 name=$5; shift 5
-  # Lengths uniform in [0.8*L, L]: vLLM samples [(1-r)*m, (1+r)*m], so
-  # m = 0.9*L and r = 1/9.
+  local len_args
+  if [ "$LENGTHS" = range ]; then
+    # Uniform in [0.8*L, L]: vLLM samples [(1-r)*m, (1+r)*m], so m = 0.9*L, r = 1/9.
+    len_args=(--random-input-len $(( isl * 9 / 10 )) --random-output-len $(( osl * 9 / 10 ))
+      --random-range-ratio 0.1111)
+  else
+    len_args=(--random-input-len "$isl" --random-output-len "$osl")
+  fi
   timeout 2700 docker exec $CONTAINER vllm bench serve \
     --backend vllm --model "$MODEL" --host localhost --port $PORT \
-    --dataset-name random --random-input-len $(( isl * 9 / 10 )) \
-    --random-output-len $(( osl * 9 / 10 )) --random-range-ratio 0.1111 \
+    --dataset-name random "${len_args[@]}" \
     --num-prompts "$n" --max-concurrency "$c" --request-rate inf \
     --ignore-eos --temperature 0 --seed 42 \
     --percentile-metrics ttft,tpot,itl,e2el --metric-percentiles 50,90,99 \
@@ -250,12 +258,13 @@ done
 # Repeat the whole sweep (not each point back to back) so slow drift shows up
 # as spread between repeats instead of hiding inside one point.
 RUNS=$([ "$MODE" = smoke ] && echo 1 || echo "${REPEATS:-1}")
+[ "${SWEEP:-1}" = 0 ] && RUNS=0
 for r in $(seq 1 "$RUNS"); do
   for wl in $WORKLOADS; do
     isl=${wl%%:*} osl=${wl##*:}
     for c in $CONCURRENCIES; do
-      n=${NUM_PROMPTS:-$(( 5 * c > 40 ? 5 * c : 40 ))}
-      name="w${isl}x${osl}_c${c}_r$r"
+      if [ "$NUM_PROMPTS" = auto ]; then n=$(( 5 * c > 40 ? 5 * c : 40 )); else n=$NUM_PROMPTS; fi
+      name="w${isl}x${osl}$([ "$LENGTHS" = range ] || echo e)_c${c}_r$r"
       echo "$(date -Is) benchmark $name n=$n repeat $r/$RUNS"
       bench "$isl" "$osl" "$c" "$n" "$name" 2>&1 | tee "$W/logs/${MODE}_${name}.log"
       upload_results
@@ -265,7 +274,7 @@ done
 
 # One real-text point: ShareGPT conversations (routing on real text can load
 # experts differently from random tokens). Output lengths from the dataset.
-if [ "${RUN_EXTRAS:-0}" = 1 ] && [ "${SHAREGPT:-1}" = 1 ]; then
+if [ "${RUN_EXTRAS:-0}" = 1 ] && [ "${SHAREGPT:-0}" = 1 ] && [ "${SWEEP:-1}" != 0 ]; then
   if docker exec $CONTAINER python3 -c "
 from huggingface_hub import hf_hub_download
 hf_hub_download('anon8231489123/ShareGPT_Vicuna_unfiltered',
@@ -285,7 +294,7 @@ hf_hub_download('anon8231489123/ShareGPT_Vicuna_unfiltered',
   fi
 fi
 
-if [ -n "$PROFILE_CONCURRENCY" ]; then
+if [ -n "$PROFILE_CONCURRENCY" ] && [ "${SWEEP:-1}" != 0 ]; then
   # Separate, shorter run so profiler overhead never touches measured numbers.
   c=$PROFILE_CONCURRENCY
   echo "$(date -Is) profiled run c=$c"

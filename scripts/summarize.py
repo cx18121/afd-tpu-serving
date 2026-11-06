@@ -5,7 +5,8 @@ usage: scripts/summarize.py results
 
 Reads results/<family>/<layout>/<name>.json, where family is "colocated" or
 "afd" and name is one of
-  w<ISL>x<OSL>_c<N>_r<K>.json   random tokens, target lengths ISL/OSL
+  w<ISL>x<OSL>[e]_c<N>_r<K>.json  random tokens; "e" = exact lengths,
+                                  otherwise uniform in [0.8*L, L]
   sharegpt_c<N>_r<K>.json       ShareGPT conversations
   colocated_c<N>[_r<K>].json    first protocol (exact 1024/256, 200 prompts)
 and writes
@@ -46,7 +47,8 @@ COLUMNS = (["family", "layout", "workload", "chips", "concurrency", "repeats",
 CHIPS = {"tp8_ep": 8, "dp2_tp4_ep": 8, "tp4_ep": 4, "afd_dp2": 8}
 TPOT_TARGETS_MS = (20, 50)
 NAMES = [
-    (re.compile(r"^w(\d+)x(\d+)_c(\d+)_r(\d+)\.json$"), lambda m: f"{m[1]}x{m[2]}"),
+    (re.compile(r"^w(\d+)x(\d+)(e?)_c(\d+)_r(\d+)\.json$"),
+     lambda m: f"{m[1]}x{m[2]}" + ("-exact" if m[3] else "")),
     (re.compile(r"^sharegpt_c(\d+)_r(\d+)\.json$"), lambda m: "sharegpt"),
     (re.compile(r"^colocated_c(\d+)(?:_r(\d+))?\.json$"), lambda m: "1024x256-exact"),
 ]
@@ -56,7 +58,7 @@ def parse(name):
     for pattern, workload in NAMES:
         m = pattern.match(name)
         if m:
-            c = int(m[3]) if workload(m) not in ("sharegpt", "1024x256-exact") else int(m[1])
+            c = int(m[4]) if name.startswith("w") else int(m[1])
             return workload(m), c
     return None
 
