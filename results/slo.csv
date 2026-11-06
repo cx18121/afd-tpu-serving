@@ -1,0 +1,7 @@
+family,layout,workload,tpot_target_ms,best_output_tok_s_per_chip,at_concurrency,mean_tpot_ms
+afd,afd_dp2,1024x256-exact,20,225.197,32,14.633
+afd,afd_dp2,1024x256-exact,50,377.052,128,29.813
+colocated,dp2_tp4_ep,1024x256-exact,20,678.146,128,16.271
+colocated,dp2_tp4_ep,1024x256-exact,50,678.146,128,16.271
+colocated,tp8_ep,1024x256-exact,20,650.535,128,17.678
+colocated,tp8_ep,1024x256-exact,50,650.535,128,17.678
