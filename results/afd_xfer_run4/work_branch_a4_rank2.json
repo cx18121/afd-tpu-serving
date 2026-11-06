@@ -1,0 +1,10 @@
+{
+ "rank": 2,
+ "role": "attention",
+ "design": "work_branch",
+ "n_attn": 4,
+ "world": 8,
+ "points": {},
+ "last_stage": "B=1 compiled+running 1 layer",
+ "error": "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x75b01f61b6b0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, which should never try to materialize tensors\\n\\nWhile executing %cond : [num_users=1] = call_function[target=torch.ops.higher_order.cond](args = (%arg0_1, %true_graph_0, %false_graph_0, (%arg2_1, %arg1_1)), kwargs = {})\\nOriginal traceback:\\n  File \"/afd/transfer_test.py\", line 278, in run\\n    h = layer(h, *extra)\\n        ^^^^^^^^^^^^^^^^\\n  File \"/afd/transfer_test.py\", line 163, in layer\\n    z = torch.cond(is_attn_t, lambda z_, w2: work(z_, w2),\\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n\\nUse tlparse to see full graph. (https://github.com/pytorch/tlparse?tab=readme-ov-file#tlparse-parse-structured-pt2-logs)\\n\\nWhile executing %submod_0 : [num_users=1] = call_module[target=submod_0](args = (%arg0_1, %arg2_1, %arg1_1, %arg3_1, %arg4_1), kwargs = {})\\nOriginal traceback:\\nNone\\nUse tlparse to see full graph. (https://github.com/pytorch/tlparse?tab=readme-ov-file#tlparse-parse-structured-pt2-logs)\\n\\nSet TORCHDYNAMO_VERBOSE=1 for the internal stack trace (please do this especially if you\\'re reporting a bug to PyTorch). For even more developer context, set TORCH_LOGS=\"+dynamo\"\\n')"
+}

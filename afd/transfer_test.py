@@ -74,15 +74,21 @@ def make_layer(design, rank, world, n_attn, b, w, group, torch):
     attn = rank < n_attn
     n_ffn = world - n_attn
 
-    if design == "hetero":
+    if design in ("hetero", "hetero_unused"):
         if attn:
             def layer(h):
                 zero = torch.zeros_like(h)
                 send = torch.cat([zero if r < n_attn else h for r in range(world)])
-                a2a(send, group)                      # dispatch (we receive zeros)
+                recv = a2a(send, group)               # dispatch (we receive zeros)
                 back = a2a(torch.zeros_like(send), group)  # combine
-                out = back[n_attn * b:].reshape(n_ffn, b, H).sum(0)
-                return out / n_ffn
+                out = back[n_attn * b:].reshape(n_ffn, b, H).sum(0) / n_ffn
+                if design == "hetero_unused":
+                    # Original version: the dispatch result is never used, so
+                    # the compiler may drop that collective on this side only.
+                    return out
+                # Use the dispatch result so the collective cannot be removed
+                # as dead code (functional collectives count as pure ops).
+                return out + recv[:1].sum() * 0
         else:
             def layer(h):
                 recv = a2a(torch.zeros(world * b, H, dtype=h.dtype, device=h.device), group)

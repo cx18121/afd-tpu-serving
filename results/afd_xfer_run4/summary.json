@@ -1,0 +1,194 @@
+[
+ {
+  "design": "homo",
+  "split": "4:4",
+  "status": "ok",
+  "seconds": 48,
+  "last_stage": [
+   "B=128 done"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": 16.615624998550516,
+    "per_layer_us_attn": 15.10093749956809,
+    "correct": true,
+    "rel_err_max": 0.005980842269211121
+   },
+   "8": {
+    "per_layer_us_max": 22.975687500093045,
+    "per_layer_us_attn": 21.042671874749175,
+    "correct": true,
+    "rel_err_max": 0.006729681023607857
+   },
+   "32": {
+    "per_layer_us_max": 88.40256250053358,
+    "per_layer_us_attn": 62.650203124903214,
+    "correct": true,
+    "rel_err_max": 0.006385676140830506
+   },
+   "128": {
+    "per_layer_us_max": 93.95818749879936,
+    "per_layer_us_attn": 86.52595312552691,
+    "correct": true,
+    "rel_err_max": 0.006355827044464063
+   }
+  }
+ },
+ {
+  "design": "cond",
+  "split": "4:4",
+  "status": "exit 1",
+  "seconds": 36,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x74df114ad280>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x75ee8a909700>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x768c60771250>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x783a03cc5550>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x792f19eed220>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7a29e7525d90>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7e12f58916d0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7fefe4e561e0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w"
+  ],
+  "points": {}
+ },
+ {
+  "design": "work_both",
+  "split": "4:4",
+  "status": "exit 1",
+  "seconds": 29,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x723a65656360>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x73bced1ee7e0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x73d589bbd2e0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x74f769655550>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x765bebfd71d0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7c887e229670>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7d27dc7651f0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7e12eb33ff50>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m"
+  ],
+  "points": {}
+ },
+ {
+  "design": "work_branch",
+  "split": "4:4",
+  "status": "exit 1",
+  "seconds": 38,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x728a386712e0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x73338ad24080>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x75b01f61b6b0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7932bbb51640>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x79bcd5f75640>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7ba890535430>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7bd1cf1c3200>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7f2efe8dd220>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w"
+  ],
+  "points": {}
+ },
+ {
+  "design": "homo",
+  "split": "2:6",
+  "status": "ok",
+  "seconds": 45,
+  "last_stage": [
+   "B=128 done"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": 20.24062500183277,
+    "per_layer_us_attn": 16.68659375120285,
+    "correct": true,
+    "rel_err_max": 0.008255330417152713
+   },
+   "8": {
+    "per_layer_us_max": 22.873125001154904,
+    "per_layer_us_attn": 19.234125002043356,
+    "correct": true,
+    "rel_err_max": 0.006930040163363845
+   },
+   "32": {
+    "per_layer_us_max": 32.04062499762017,
+    "per_layer_us_attn": 20.469406250001043,
+    "correct": true,
+    "rel_err_max": 0.008128603359069942
+   },
+   "128": {
+    "per_layer_us_max": 149.17362500099784,
+    "per_layer_us_attn": 147.84896874964204,
+    "correct": true,
+    "rel_err_max": 0.00915953863944574
+   }
+  }
+ },
+ {
+  "design": "cond",
+  "split": "2:6",
+  "status": "exit 1",
+  "seconds": 32,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x739ef1261520>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7515e831e360>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7598c9d2d250>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x763420e95520>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x76e30f5b16d0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x77eb35c63290>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7c461bb4b6b0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7f8d8e4f1d60>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w"
+  ],
+  "points": {}
+ },
+ {
+  "design": "work_both",
+  "split": "2:6",
+  "status": "exit 1",
+  "seconds": 33,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x70955fc912e0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x712563611490>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x723f3e371550>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x73a17e3f1580>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x765a6e6cf320>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7a59ef681580>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7aa3af3de090>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7c9cc524f6b0>\\' raised:\\nRuntimeError: mm(): expected the two arguments to have the same dtype, got float32 vs bfloat16\\n\\nWhile executing %mm_default : [num_users=1] = call_function[target=torch.ops.aten.m"
+  ],
+  "points": {}
+ },
+ {
+  "design": "work_branch",
+  "split": "2:6",
+  "status": "exit 1",
+  "seconds": 36,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7398027db3e0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x74959d8991f0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x78ee82171670>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x792d35d40200>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7b9f67495580>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7ce1ae899640>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7d98e4ade720>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7f0fd6d752e0>\\' raised:\\nRuntimeError: local_scalar_dense(): cannot Materialize() a placeholder tensor or a tensor that depends on a placeholder. \\nPlaceholder tensors should only appear in compiled mode, w"
+  ],
+  "points": {}
+ }
+]
