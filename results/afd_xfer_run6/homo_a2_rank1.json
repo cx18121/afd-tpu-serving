@@ -1,0 +1,34 @@
+{
+ "rank": 1,
+ "role": "attention",
+ "design": "homo",
+ "n_attn": 2,
+ "world": 8,
+ "points": {
+  "1": {
+   "rel_err": 0.007707657864547944,
+   "correct": true,
+   "per_layer_us": 23.048124999647257,
+   "single_call_us": 721.0800000052586
+  },
+  "8": {
+   "rel_err": 0.00673977801292252,
+   "correct": true,
+   "per_layer_us": 21.24874999864801,
+   "single_call_us": 1132.5700000099914
+  },
+  "32": {
+   "rel_err": 0.008128603359069942,
+   "correct": true,
+   "per_layer_us": 42.55624999949248,
+   "single_call_us": 1380.690000019058
+  },
+  "128": {
+   "rel_err": 0.007759596506435691,
+   "correct": true,
+   "per_layer_us": 115.48568749830679,
+   "single_call_us": 2317.620000013676
+  }
+ },
+ "last_stage": "B=128 done"
+}
