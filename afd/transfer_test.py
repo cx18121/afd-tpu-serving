@@ -44,7 +44,7 @@ from pathlib import Path
 H = 2048  # Qwen3-30B-A3B hidden size
 SEED = 1234
 REPS = 16
-DESIGNS = ("homo", "p2p", "uneven", "hetero")  # hetero last: it may hang
+DESIGNS = ("homo", "cond", "work_both", "work_branch", "p2p", "uneven", "hetero")  # hetero last: it may hang
 
 
 # ----------------------------------------------------------------- helpers
@@ -103,6 +103,69 @@ def make_layer(design, rank, world, n_attn, b, w, group, torch):
             out = (back.reshape(world, b, H) * dst_ffn_t.view(world, 1, 1).to(h.dtype)).sum(0) / n_ffn
             return out * is_attn_t.to(h.dtype) + h * (1 - is_attn_t).to(h.dtype)
         layer.extra = (torch.tensor(is_attn), dst_ffn)
+        return layer
+
+    if design == "cond":
+        # One program on every rank (like homo), but each rank executes only
+        # its own role's compute through a runtime branch (torch.cond ->
+        # XLA conditional). The two exchanges stay outside the branch, so all
+        # ranks run them identically.
+        is_attn = torch.tensor(attn)
+        dst_ffn = torch.tensor([0.0 if r < n_attn else 1.0 for r in range(world)])
+
+        def build_send(h, d, w_):
+            return (h.unsqueeze(0) * d.view(world, 1, 1).to(h.dtype)).reshape(world * b, H)
+
+        def no_send(h, d, w_):
+            return torch.zeros(world * b, H, dtype=h.dtype, device=h.device)
+
+        def no_expert(r, w_):
+            return torch.zeros_like(r)
+
+        def expert(r, w_):
+            return r @ w_
+
+        def combine(back, h, d):
+            return (back.reshape(world, b, H) * d.view(world, 1, 1).to(h.dtype)).sum(0) / n_ffn
+
+        def keep(back, h, d):
+            return h.clone()
+
+        def layer(h, is_attn_t, dst_ffn_t, w_):
+            send = torch.cond(is_attn_t, build_send, no_send, (h, dst_ffn_t, w_))
+            recv = a2a(send, group)
+            y = torch.cond(is_attn_t, no_expert, expert, (recv, w_))
+            back = a2a(y, group)
+            return torch.cond(is_attn_t, combine, keep, (back, h, dst_ffn_t))
+        layer.extra = (is_attn, dst_ffn, w)
+        return layer
+
+    if design in ("work_both", "work_branch"):
+        # Skip check for torch.cond: each role has K matmuls of side work that
+        # does not feed the exchange. work_both runs both roles' work on every
+        # rank (what a plain shared program does); work_branch runs only the
+        # rank's own role through torch.cond. If the branch really skips the
+        # other role's work, work_branch is ~K matmuls faster per layer.
+        k_work = int(os.environ.get("AFD_WORK", "40"))
+        base = make_layer("homo", rank, world, n_attn, b, w, group, torch)
+        is_attn = torch.tensor(attn)
+
+        def work(z, w_):
+            for _ in range(k_work):
+                z = z + (z @ w_) * 1e-30
+            return z
+
+        def layer(h, is_attn_t, dst_ffn_t, w_, z0):
+            if design == "work_both":
+                za, ze = work(z0, w_), work(z0 * 2, w_)
+                z = torch.where(is_attn_t, za, ze)
+            else:
+                z = torch.cond(is_attn_t, lambda z_, w2: work(z_, w2),
+                               lambda z_, w2: work(z_ * 2, w2), (z0, w_))
+            out = base(h, is_attn_t.to(torch.float32), dst_ffn_t)
+            return out + z[:1, :1] * 1e-30
+        z0 = torch.randn(b, H) * 0.01
+        layer.extra = (is_attn, base.extra[1], w, z0)
         return layer
 
     if design == "uneven":
@@ -355,7 +418,7 @@ def main():
     ap.add_argument("--launch", action="store_true")
     ap.add_argument("--worker", action="store_true")
     ap.add_argument("--platform", choices=("tpu", "cpu"), default="tpu")
-    ap.add_argument("--design", choices=DESIGNS)
+    ap.add_argument("--design")
     ap.add_argument("--designs", default=",".join(DESIGNS))
     ap.add_argument("--n-attn", type=int, default=4)
     ap.add_argument("--splits", default="4,2")
