@@ -3,35 +3,195 @@
   "design": "homo",
   "split": "4:4",
   "status": "ok",
-  "seconds": 48,
+  "seconds": 49,
   "last_stage": [
    "B=128 done"
   ],
   "errors": [],
   "points": {
    "1": {
-    "per_layer_us_max": 16.83874999969248,
-    "per_layer_us_attn": 16.197500000370013,
+    "per_layer_us_max": 14.966249999304182,
+    "per_layer_us_attn": 14.522656250459676,
     "correct": true,
     "rel_err_max": 0.005980842269211121
    },
    "8": {
-    "per_layer_us_max": 16.33556250002499,
-    "per_layer_us_attn": 14.938906249373218,
+    "per_layer_us_max": 22.157499998343155,
+    "per_layer_us_attn": 18.660015626004167,
     "correct": true,
     "rel_err_max": 0.006729681023607857
    },
    "32": {
-    "per_layer_us_max": 39.46624999962012,
-    "per_layer_us_attn": 31.340328124684902,
+    "per_layer_us_max": 63.14124999917681,
+    "per_layer_us_attn": 61.75343749914575,
     "correct": true,
     "rel_err_max": 0.006385676140830506
    },
    "128": {
-    "per_layer_us_max": 204.9093750020603,
-    "per_layer_us_attn": 204.3829687510268,
+    "per_layer_us_max": 84.30193750008641,
+    "per_layer_us_attn": 83.23190624981436,
     "correct": true,
     "rel_err_max": 0.006355827044464063
+   }
+  }
+ },
+ {
+  "design": "p2p",
+  "split": "4:4",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=8 compiled+running 1 layer"
+  ],
+  "errors": [
+   "RuntimeError('PjRtBuffer::CopyToRemoteDevice: INVALID_ARGUMENT: Remote size 8192 is not identical to local size 32768\\n=== Source Location Trace: === \\nexternal/xla+/xla/pjrt/c/pjrt_c_api_status_utils.cc:146\\n')",
+   "RuntimeError('PjRtBuffer::CopyToRemoteDevice: INVALID_ARGUMENT: Remote size 8192 is not identical to local size 32768\\n=== Source Location Trace: ===\\nexternal/xla+/xla/pjrt/c/pjrt_c_api_status_utils.cc:146\\n')"
+  ],
+  "points": {
+   "1": {
+    "per_layer_us_max": 1355.6911875021171,
+    "per_layer_us_attn": 1342.0882031254243,
+    "correct": true,
+    "rel_err_max": 0.006378101712974201
+   }
+  }
+ },
+ {
+  "design": "uneven",
+  "split": "4:4",
+  "status": "exit 1",
+  "seconds": 37,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7237f50a8140>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 5 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7357d2832600>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 1 has input buffer size 4, but peer rank 4 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x748646926720>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 3 has input buffer size 4, but peer rank 4 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7611b35ce600>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 7 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x78dc262a2090>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 4 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7bc2c0206510>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 2 has input buffer size 4, but peer rank 4 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7bde91230080>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 6 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7cdfbfe430e0>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 0 has input buffer size 4, but peer rank 4 has input buffer "
+  ],
+  "points": {}
+ },
+ {
+  "design": "hetero",
+  "split": "4:4",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
+   }
+  }
+ },
+ {
+  "design": "homo",
+  "split": "2:6",
+  "status": "ok",
+  "seconds": 42,
+  "last_stage": [
+   "B=128 done"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": 12.178125004425056,
+    "per_layer_us_attn": 11.524062500711807,
+    "correct": true,
+    "rel_err_max": 0.008255330417152713
+   },
+   "8": {
+    "per_layer_us_max": 22.077499991723926,
+    "per_layer_us_attn": 20.50843750112108,
+    "correct": true,
+    "rel_err_max": 0.006930040163363845
+   },
+   "32": {
+    "per_layer_us_max": 49.61687499616119,
+    "per_layer_us_attn": 44.035343751858136,
+    "correct": true,
+    "rel_err_max": 0.008128603359069942
+   },
+   "128": {
+    "per_layer_us_max": 84.53568749899887,
+    "per_layer_us_attn": 84.07287499778704,
+    "correct": true,
+    "rel_err_max": 0.00915953863944574
+   }
+  }
+ },
+ {
+  "design": "p2p",
+  "split": "2:6",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=8 timing k=1"
+  ],
+  "errors": [
+   "RuntimeError('PjRtBuffer::CopyToRemoteDevice: INVALID_ARGUMENT: Remote size 8192 is not identical to local size 32768\\n=== Source Location Trace: === \\nexternal/xla+/xla/pjrt/c/pjrt_c_api_status_utils.cc:146\\n')",
+   "RuntimeError('PjRtBuffer::CopyToRemoteDevice: INVALID_ARGUMENT: Remote size 8192 is not identical to local size 32768\\n=== Source Location Trace: ===\\nexternal/xla+/xla/pjrt/c/pjrt_c_api_status_utils.cc:146\\n')"
+  ],
+  "points": {
+   "1": {
+    "per_layer_us_max": 1177.1756875020856,
+    "per_layer_us_attn": 1150.8441250001056,
+    "correct": true,
+    "rel_err_max": 0.006667054266396185
+   },
+   "8": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": true,
+    "rel_err_max": 0.006363143547013173
+   }
+  }
+ },
+ {
+  "design": "uneven",
+  "split": "2:6",
+  "status": "exit 1",
+  "seconds": 30,
+  "last_stage": [
+   "B=1 compiled+running 1 layer"
+  ],
+  "errors": [
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7240eac0c140>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 4 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x77a470796870>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 6 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x78bd45db9d60>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 0 has input buffer size 6, but peer rank 2 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x79175ed4b860>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 7 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x79c84f3da600>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 2 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7a6b64703140>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 5 has input buffer size 0, but peer rank 0 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7cfa87faa600>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 1 has input buffer size 6, but peer rank 2 has input buffer ",
+   "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7f6a72592b70>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 3 has input buffer size 0, but peer rank 0 has input buffer "
+  ],
+  "points": {}
+ },
+ {
+  "design": "hetero",
+  "split": "2:6",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
    }
   }
  }

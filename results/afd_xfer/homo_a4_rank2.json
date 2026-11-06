@@ -8,26 +8,26 @@
   "1": {
    "rel_err": 0.0036176733445247343,
    "correct": true,
-   "per_layer_us": 16.121250000722398,
-   "single_call_us": 780.6799999912073
+   "per_layer_us": 14.203750000163495,
+   "single_call_us": 792.7409999979318
   },
   "8": {
    "rel_err": 0.006729681023607857,
    "correct": true,
-   "per_layer_us": 16.33556250002499,
-   "single_call_us": 1190.0909999980058
+   "per_layer_us": 18.276937501227053,
+   "single_call_us": 1137.6500000039869
   },
   "32": {
    "rel_err": 0.004850664173152553,
    "correct": true,
-   "per_layer_us": 39.46624999962012,
-   "single_call_us": 1487.03000002115
+   "per_layer_us": 62.76499999913199,
+   "single_call_us": 1424.4209999958457
   },
   "128": {
    "rel_err": 0.006002349895508204,
    "correct": true,
-   "per_layer_us": 204.9093750020603,
-   "single_call_us": 2325.1609999874745
+   "per_layer_us": 82.28756249906155,
+   "single_call_us": 3012.7109999966706
   }
  },
  "last_stage": "B=128 done"

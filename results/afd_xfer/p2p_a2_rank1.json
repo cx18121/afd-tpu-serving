@@ -1,0 +1,20 @@
+{
+ "rank": 1,
+ "role": "attention",
+ "design": "p2p",
+ "n_attn": 2,
+ "world": 8,
+ "points": {
+  "1": {
+   "rel_err": 0.006667054266396185,
+   "correct": true,
+   "per_layer_us": 1161.4375624944273,
+   "single_call_us": 1858.5600000733393
+  },
+  "8": {
+   "rel_err": 0.006363143547013173,
+   "correct": true
+  }
+ },
+ "last_stage": "B=8 timing k=1"
+}

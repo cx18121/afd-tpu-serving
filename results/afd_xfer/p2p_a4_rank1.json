@@ -7,8 +7,11 @@
  "points": {
   "1": {
    "rel_err": 0.006378101712974201,
-   "correct": true
+   "correct": true,
+   "per_layer_us": 1331.6374375005325,
+   "single_call_us": 2520.529999998189
   }
  },
- "last_stage": "B=1 timing k=1"
+ "last_stage": "B=8 compiled+running 1 layer",
+ "error": "RuntimeError('PjRtBuffer::CopyToRemoteDevice: INVALID_ARGUMENT: Remote size 8192 is not identical to local size 32768\\n=== Source Location Trace: ===\\nexternal/xla+/xla/pjrt/c/pjrt_c_api_status_utils.cc:146\\n')"
 }

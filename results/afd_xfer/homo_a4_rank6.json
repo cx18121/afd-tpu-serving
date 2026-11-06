@@ -6,20 +6,20 @@
  "world": 8,
  "points": {
   "1": {
-   "per_layer_us": 13.168187499523754,
-   "single_call_us": 815.9399999954076
+   "per_layer_us": 10.189437499974474,
+   "single_call_us": 875.1299999971707
   },
   "8": {
-   "per_layer_us": 15.993687499715747,
-   "single_call_us": 1195.9809999950721
+   "per_layer_us": 18.176875000719406,
+   "single_call_us": 1139.3609999856835
   },
   "32": {
-   "per_layer_us": 25.401812500547294,
-   "single_call_us": 1690.3709999951388
+   "per_layer_us": 59.949375000201144,
+   "single_call_us": 1427.2109999922122
   },
   "128": {
-   "per_layer_us": 202.08943750077424,
-   "single_call_us": 2376.2809999823276
+   "per_layer_us": 83.17312500061291,
+   "single_call_us": 3002.560999988191
   }
  },
  "last_stage": "B=128 done"

@@ -1,0 +1,10 @@
+{
+ "rank": 2,
+ "role": "attention",
+ "design": "uneven",
+ "n_attn": 4,
+ "world": 8,
+ "points": {},
+ "last_stage": "B=1 compiled+running 1 layer",
+ "error": "BackendCompilerFailed('backend=\\'<torch_tpu._internal.compile._backend.TpuBackend object at 0x7bc2c0206510>\\' raised:\\nRuntimeError: distributed.all_to_all_single(): asymmetric input buffer sizes across ranks are not supported on TPU. Rank 2 has input buffer size 4, but peer rank 4 has input buffer size 0. All ranks must allocate symmetric input buffer capacities; use padding if necessary\\n\\nWhile executing %all_to_all_single_default : [num_users=1] = call_function[target=torch.ops._c10d_functional.all_to_all_single.default](args = (%cat_default, [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1], 0), kwargs = {})\\nOriginal traceback:\\n  File \"/afd/transfer_test.py\", line 215, in run\\n    h = layer(h, *extra)\\n        ^^^^^^^^^^^^^^^^\\n  File \"/afd/transfer_test.py\", line 115, in layer\\n    a2a(send, group, out_splits=none, in_splits=to_ffn)\\n  File \"/afd/transfer_test.py\", line 64, in a2a\\n    out = funcol.all_to_all_single(x.contiguous(), out_splits, in_splits, group)\\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \"/usr/local/lib/python3.12/site-packages/torch/distributed/_functional_collectives.py\", line 583, in all_to_all_single\\n    tensor = torch.ops._c10d_functional.all_to_all_single(  # type: ignore[attr-defined]\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n\\nUse tlparse to see full graph. (https://github.com/pytorch/tlparse?tab=readme-ov-file#tlparse-parse-structured-pt2-logs)\\n\\"
+}

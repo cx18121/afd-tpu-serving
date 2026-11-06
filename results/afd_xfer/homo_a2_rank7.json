@@ -1,0 +1,26 @@
+{
+ "rank": 7,
+ "role": "expert",
+ "design": "homo",
+ "n_attn": 2,
+ "world": 8,
+ "points": {
+  "1": {
+   "per_layer_us": 5.524374998344683,
+   "single_call_us": 887.8400000185138
+  },
+  "8": {
+   "per_layer_us": 19.124375000956206,
+   "single_call_us": 1128.4099999784303
+  },
+  "32": {
+   "per_layer_us": 45.10375000421618,
+   "single_call_us": 1469.390000011117
+  },
+  "128": {
+   "per_layer_us": 81.61806250228665,
+   "single_call_us": 2801.201000011133
+  }
+ },
+ "last_stage": "B=128 done"
+}

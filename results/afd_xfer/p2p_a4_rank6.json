@@ -5,7 +5,10 @@
  "n_attn": 4,
  "world": 8,
  "points": {
-  "1": {}
+  "1": {
+   "per_layer_us": 1351.4586875000846,
+   "single_call_us": 2169.040000012501
+  }
  },
- "last_stage": "B=1 timing k=1"
+ "last_stage": "B=8 compiled+running 1 layer"
 }
