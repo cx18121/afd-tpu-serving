@@ -37,7 +37,7 @@ fi
 cat > "$T/env.sh" <<EOF
 export VM_WORKDIR="$T/work"
 export AFD_MOCK_SERVER="$MOCK"
-export CONCURRENCIES="4" NUM_PROMPTS=8 WARMUPS="1:2"
+export CONCURRENCIES="4" NUM_PROMPTS=8 WARMUPS="1:2" GSM8K_LIMIT=5 SHAREGPT=0
 export PATH="$T/bin:\$PATH"
 EOF
 echo "test-run" > "$T/work/run_id"
@@ -46,6 +46,7 @@ echo "test-run" > "$T/work/run_id"
 mkdir -p "$T/scripts"
 cp "$REPO"/scripts/vm/*.sh "$T/scripts/"
 cp -r "$REPO/afd/plugin" "$T/scripts/plugin"
+cp "$REPO"/afd/*.py "$T/scripts/"
 VM_WORKDIR="$T/work" bash -c "source '$REPO/scripts/config.sh'; write_config_snapshot '$T/scripts/config.sh'"
 
 # The fake VM uses the same absolute paths as this machine, because the Docker

@@ -22,9 +22,13 @@ mkdir -p "$W/logs"
 echo RUNNING > "$STATUS_FILE"
 trap 'echo FAILED > "$STATUS_FILE"; docker rm -f $CONTAINER >/dev/null 2>&1 || true' ERR
 
-# Shared benchmark workload (course plan): random tokens, 1024 in, 256 out.
-INPUT_LEN=1024
-OUTPUT_LEN=256
+# Benchmark protocol (see BASELINE.md):
+# - random-token prompts, input:output target lengths from WORKLOADS, each
+#   length drawn uniformly from [0.8*L, L] (InferenceX convention);
+# - per concurrency c, max(5*c, 40) prompts (about 5 full waves), unless
+#   NUM_PROMPTS is set;
+# - GSM8K (5-shot, lm-eval) and one real-text ShareGPT point per layout.
+WORKLOADS="${WORKLOADS:-1024:256 1024:1024}"
 
 # Settings shared by every Qwen3-30B-A3B layout. This is the v6e recipe from
 # the vllm-torchtpu docs, except:
@@ -50,6 +54,7 @@ case "$MODE" in
       --gpu-memory-utilization 0.90 --async-scheduling --no-enable-prefix-caching)
     CONCURRENCIES="4"
     NUM_PROMPTS=20
+    WORKLOADS="1024:256"
     WARMUPS=""
     PROFILE_CONCURRENCY=""
     ;;
@@ -72,7 +77,8 @@ case "$MODE" in
                   PIN_HEADER="X-data-parallel-rank=0" ;;
     esac
     CONCURRENCIES=$MOE_CONCURRENCIES
-    NUM_PROMPTS="${NUM_PROMPTS:-200}"
+    NUM_PROMPTS="${NUM_PROMPTS:-}"   # empty: max(5*c, 40)
+    RUN_EXTRAS=1                     # GSM8K + ShareGPT point
     # Discarded passes that exercise small and large batches before measuring.
     WARMUPS="${WARMUPS-1:4 128:128}"
     PROFILE_CONCURRENCY=16
@@ -205,11 +211,27 @@ json.dump(greedy, open(greedy_out, "w"), indent=2)
 sys.exit(0 if ok else 1)
 PY
 
-bench() {  # bench CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
-  local c=$1 n=$2 name=$3; shift 3
+# GSM8K accuracy (lm-evaluation-harness, in a throwaway Python container).
+if [ "${RUN_EXTRAS:-0}" = 1 ] && [ "${GSM8K:-1}" = 1 ]; then
+  echo "$(date -Is) GSM8K"
+  timeout 2400 docker run --rm --net=host \
+    -v "$HERE/gsm8k_eval.py:/gsm8k_eval.py:ro" -v "$RESULTS:/out" python:3.12-slim \
+    bash -c "pip install -q 'lm-eval[api]==0.4.13' && python /gsm8k_eval.py \
+      --port $PORT --model $MODEL --out /out/gsm8k.json ${PIN_HEADER:+--header $PIN_HEADER} \
+      ${GSM8K_LIMIT:+--limit $GSM8K_LIMIT}" \
+    > "$W/logs/${MODE}_gsm8k.log" 2>&1 || echo "WARN: GSM8K failed (see logs/${MODE}_gsm8k.log)"
+  grep '^GSM8K' "$W/logs/${MODE}_gsm8k.log" || true
+  upload_results
+fi
+
+bench() {  # bench ISL OSL CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
+  local isl=$1 osl=$2 c=$3 n=$4 name=$5; shift 5
+  # Lengths uniform in [0.8*L, L]: vLLM samples [(1-r)*m, (1+r)*m], so
+  # m = 0.9*L and r = 1/9.
   timeout 2700 docker exec $CONTAINER vllm bench serve \
     --backend vllm --model "$MODEL" --host localhost --port $PORT \
-    --dataset-name random --random-input-len $INPUT_LEN --random-output-len $OUTPUT_LEN \
+    --dataset-name random --random-input-len $(( isl * 9 / 10 )) \
+    --random-output-len $(( osl * 9 / 10 )) --random-range-ratio 0.1111 \
     --num-prompts "$n" --max-concurrency "$c" --request-rate inf \
     --ignore-eos --temperature 0 --seed 42 \
     --percentile-metrics ttft,tpot,itl,e2el --metric-percentiles 50,90,99 \
@@ -217,9 +239,11 @@ bench() {  # bench CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
     ${PIN_HEADER:+--header "$PIN_HEADER"} "$@"
 }
 
+first_wl=${WORKLOADS%% *}
 for w in $WARMUPS; do
   echo "$(date -Is) warmup c=${w%%:*} n=${w##*:} (discarded)"
-  bench "${w%%:*}" "${w##*:}" "warmup_c${w%%:*}" > "$W/logs/${MODE}_warmup_c${w%%:*}.log" 2>&1
+  bench "${first_wl%%:*}" "${first_wl##*:}" "${w%%:*}" "${w##*:}" "warmup_c${w%%:*}" \
+    > "$W/logs/${MODE}_warmup_c${w%%:*}.log" 2>&1
   rm -f "$RESULTS/warmup_c${w%%:*}.json"
 done
 
@@ -227,18 +251,46 @@ done
 # as spread between repeats instead of hiding inside one point.
 RUNS=$([ "$MODE" = smoke ] && echo 1 || echo "${REPEATS:-1}")
 for r in $(seq 1 "$RUNS"); do
-  for c in $CONCURRENCIES; do
-    echo "$(date -Is) benchmark c=$c n=$NUM_PROMPTS repeat $r/$RUNS"
-    bench "$c" "$NUM_PROMPTS" "colocated_c${c}_r$r" 2>&1 | tee "$W/logs/${MODE}_c${c}_r$r.log"
-    upload_results
+  for wl in $WORKLOADS; do
+    isl=${wl%%:*} osl=${wl##*:}
+    for c in $CONCURRENCIES; do
+      n=${NUM_PROMPTS:-$(( 5 * c > 40 ? 5 * c : 40 ))}
+      name="w${isl}x${osl}_c${c}_r$r"
+      echo "$(date -Is) benchmark $name n=$n repeat $r/$RUNS"
+      bench "$isl" "$osl" "$c" "$n" "$name" 2>&1 | tee "$W/logs/${MODE}_${name}.log"
+      upload_results
+    done
   done
 done
+
+# One real-text point: ShareGPT conversations (routing on real text can load
+# experts differently from random tokens). Output lengths from the dataset.
+if [ "${RUN_EXTRAS:-0}" = 1 ] && [ "${SHAREGPT:-1}" = 1 ]; then
+  if docker exec $CONTAINER python3 -c "
+from huggingface_hub import hf_hub_download
+hf_hub_download('anon8231489123/ShareGPT_Vicuna_unfiltered',
+                'ShareGPT_V3_unfiltered_cleaned_split.json', repo_type='dataset',
+                local_dir='/hf/sharegpt')" > "$W/logs/${MODE}_sharegpt_download.log" 2>&1; then
+    echo "$(date -Is) ShareGPT c=64"
+    timeout 2700 docker exec $CONTAINER vllm bench serve \
+      --backend vllm --model "$MODEL" --host localhost --port $PORT \
+      --dataset-name sharegpt --dataset-path /hf/sharegpt/ShareGPT_V3_unfiltered_cleaned_split.json \
+      --num-prompts 320 --max-concurrency 64 --request-rate inf --temperature 0 --seed 42 \
+      --percentile-metrics ttft,tpot,itl,e2el --metric-percentiles 50,90,99 \
+      --save-result --result-dir "/results/$RUN_NAME" --result-filename sharegpt_c64_r1.json \
+      ${PIN_HEADER:+--header "$PIN_HEADER"} 2>&1 | tee "$W/logs/${MODE}_sharegpt_c64.log"
+    upload_results
+  else
+    echo "WARN: ShareGPT download failed; skipping the real-text point"
+  fi
+fi
 
 if [ -n "$PROFILE_CONCURRENCY" ]; then
   # Separate, shorter run so profiler overhead never touches measured numbers.
   c=$PROFILE_CONCURRENCY
   echo "$(date -Is) profiled run c=$c"
-  bench "$c" $((2 * c)) "profile_c$c" --profile 2>&1 | tee "$W/logs/${MODE}_profile_c$c.log"
+  bench "${first_wl%%:*}" "${first_wl##*:}" "$c" $((2 * c)) "profile_c$c" --profile \
+    2>&1 | tee "$W/logs/${MODE}_profile_c$c.log"
   sleep 20  # let ranks finish writing traces
   timeout 900 gcloud storage rsync -r "$W/profile/" "$DEST/profile/" --quiet || echo "WARN: profile upload failed"
 fi

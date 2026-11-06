@@ -13,6 +13,7 @@ LAYOUTS = {  # layout: (tp, dp_replicate, ep, chips)
     "tp8_ep": (8, 1, 8, 8),
     "dp2_tp4_ep": (4, 2, 8, 8),
     "tp4_ep": (4, 1, 4, 4),
+    "afd_dp2": (4, 2, 4, 8),  # attention TP=4 on one replica, experts on the other
 }
 PROFILE_CONCURRENCY = 16
 

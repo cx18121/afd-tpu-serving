@@ -20,14 +20,14 @@ echo "Run $RUN_ID"
 gcloud storage cat "$RUNS_URI/$RUN_ID/status.txt" 2>/dev/null | tail -3 || true
 
 # Replace local results with exactly this run's, so runs never mix.
-rm -rf "$REPO/results/colocated" "$REPO/results/smoke"
+rm -rf "$REPO/results/colocated" "$REPO/results/afd" "$REPO/results/smoke"
 mkdir -p "$REPO/results"
 gcloud storage rsync -r "$RUNS_URI/$RUN_ID/results/" "$REPO/results/"
 echo "$RUN_ID" > "$REPO/results/RUN_ID"
-if [ -d "$REPO/results/colocated" ]; then
-  python3 "$REPO/scripts/summarize.py" "$REPO/results/colocated"
-  for d in "$REPO"/results/colocated/*/; do
-    python3 "$REPO/scripts/workload_card.py" "${d%/}" "$RUN_ID"
+if ls -d "$REPO"/results/colocated/*/ "$REPO"/results/afd/*/ >/dev/null 2>&1; then
+  python3 "$REPO/scripts/summarize.py" "$REPO/results"
+  for d in "$REPO"/results/colocated/*/ "$REPO"/results/afd/*/; do
+    [ -d "$d" ] && [ -f "$d/versions.txt" ] && python3 "$REPO/scripts/workload_card.py" "${d%/}" "$RUN_ID"
   done
 fi
 echo "Profile traces: $RUNS_URI/$RUN_ID/profile/   Logs: $RUNS_URI/$RUN_ID/logs/"
