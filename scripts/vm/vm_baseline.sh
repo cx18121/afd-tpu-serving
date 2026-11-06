@@ -112,6 +112,10 @@ else
 fi
 
 docker rm -f $CONTAINER >/dev/null 2>&1 || true
+# One compile cache per mode: AFD changes the expert count per chip (16 -> 32),
+# and a cache shared with dp2_tp4_ep served AFD a stale 16-expert executable
+# ("RuntimeProgramInputMismatch"), so the cache key does not cover weight shapes.
+mkdir -p "$W/cache/$MODE"
 echo "$(date -Is) starting $MODEL"
 printf '%q ' vllm serve "$MODEL" "${SERVE_ARGS[@]}" --port $PORT > "$RESULTS/serve_cmd.txt"
 docker run -d --name $CONTAINER \
@@ -119,8 +123,8 @@ docker run -d --name $CONTAINER \
   -v /dev/shm:/dev/shm --shm-size 150gb \
   -v "$W/cache:/cache" -v "$W/hf:/hf" -v "$W/results:/results" -v "$PROFILE_DIR:/profile" \
   -e HF_HOME=/hf \
-  -e TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT=/cache/torch_tpu_tier3 \
-  -e VLLM_CACHE_ROOT=/cache/vllm \
+  -e TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT=/cache/$MODE/torch_tpu_tier3 \
+  -e VLLM_CACHE_ROOT=/cache/$MODE/vllm \
   -e PYTHONUNBUFFERED=1 \
   ${EXTRA_DOCKER[@]+"${EXTRA_DOCKER[@]}"} \
   "${SERVER_CMD[@]}" >/dev/null
