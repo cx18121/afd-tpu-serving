@@ -46,7 +46,8 @@ for step in $STEPS; do
   status "running $step"
   # Cold start (download + compile) is bounded inside vm_baseline.sh; this is
   # a backstop for anything else hanging.
-  if timeout 7200 bash ./vm_baseline.sh "$step" > "$VM_WORKDIR/logs/$step.out" 2>&1; then
+  case "$step" in afd_*) script=./vm_afd.sh ;; *) script=./vm_baseline.sh ;; esac
+  if timeout 7200 bash "$script" "$step" > "$VM_WORKDIR/logs/$step.out" 2>&1; then
     status "DONE $step"
   else
     status "FAILED $step (see logs/$step.out and logs/server_$step.log)"
