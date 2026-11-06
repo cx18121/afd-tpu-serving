@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AFD for MoE serving on Cloud TPUs: midpoint</title>
+<style>
+  @page { size: 48in 36in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 48in; height: 36in; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1d1d1f; background: #fff; font-size: 0.37in; line-height: 1.32;
+  }
+  header {
+    height: 4.2in; padding: 0.45in 0.8in; background: #b31b1b; color: #fff;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 1.05in; line-height: 1.1; margin: 0 0 0.15in; letter-spacing: -0.01in; }
+  header .sub { font-size: 0.42in; opacity: 0.95; }
+  header .right { text-align: right; font-size: 0.36in; line-height: 1.45; }
+  main {
+    display: grid; grid-template-columns: 1fr 1fr 1.25fr 1fr; gap: 0.5in;
+    padding: 0.5in 0.7in; height: calc(36in - 4.2in);
+  }
+  section { display: flex; flex-direction: column; gap: 0.32in; min-height: 0; }
+  .box { background: #f6f6f8; border-radius: 0.18in; padding: 0.32in 0.4in; }
+  h2 {
+    font-size: 0.58in; margin: 0 0 0.12in; color: #b31b1b;
+    border-bottom: 0.05in solid #b31b1b; padding-bottom: 0.06in;
+  }
+  h3 { font-size: 0.4in; margin: 0.08in 0 0.08in; }
+  p { margin: 0 0 0.14in; }
+  ul { margin: 0 0 0.1in; padding-left: 0.42in; }
+  li { margin-bottom: 0.08in; }
+  img { width: 100%; display: block; }
+  .take {
+    background: #fff4e5; border-left: 0.09in solid #d9822b;
+    padding: 0.16in 0.26in; border-radius: 0.08in; font-weight: 600;
+  }
+  .hyp { background: #eaf1fb; border-left: 0.09in solid #1f5aa6;
+    padding: 0.16in 0.26in; border-radius: 0.08in; }
+  .todo { background: #fff9a8; padding: 0 0.06in; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.34in; }
+  th, td { padding: 0.06in 0.12in; text-align: right; border-bottom: 0.01in solid #ccc; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #eee; }
+  .flow { display: flex; gap: 0.12in; align-items: stretch; font-size: 0.31in; text-align: center; }
+  .flow div { flex: 1; background: #fff; border: 0.03in solid #bbb; border-radius: 0.1in; padding: 0.12in; }
+  .flow span { align-self: center; font-weight: 700; color: #999; }
+  .timeline li { margin-bottom: 0.12in; }
+  .timeline b { color: #b31b1b; }
+  .small { font-size: 0.3in; color: #555; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Does splitting attention from experts help MoE serving on TPUs?</h1>
+    <div class="sub">Attention&ndash;FFN Disaggregation (AFD) on Cloud TPU v6e &middot; midpoint: a measured colocated baseline</div>
+  </div>
+  <div class="right">
+    Charlie Xue &middot; Akhil Chilaka &middot; Rohan Anne &middot; Jerry Ji<br>
+    CS 5470, Team 27 &middot; Advisor: Eric Ding<br>
+    Cornell University
+  </div>
+</header>
+
+<main>
+<!-- Column 1: problem -->
+<section>
+  <div class="box">
+    <h2>The problem</h2>
+    <p>In a Mixture-of-Experts (MoE) model, each layer has <b>attention</b>, which reads every earlier token through a KV cache, and an <b>expert FFN</b>, where a router sends each token to a few of many experts.</p>
+    <p>The two parts want different things. Attention cost grows with context length and KV-cache traffic. Experts are efficient only when many tokens reach each expert at once. Serving both on the same chips ("colocated") ties their memory and parallelism together.</p>
+    <p><b>AFD</b> puts attention and experts on separate chip pools, so each can be sized and parallelized on its own, and one expert pool can batch tokens from several attention workers. The price is an all-to-all dispatch and combine between the pools in every layer.</p>
+  </div>
+  <div class="box">
+    <h2>Research questions</h2>
+    <ul>
+      <li>For the same model, workload, and TPU budget, <b>when does tuned AFD beat colocated serving</b> on the throughput vs. latency Pareto frontier?</li>
+      <li>Which TPU settings matter most for AFD: attention/FFN <b>split ratio</b>, expert batch size, batching wait, microbatch overlap, device placement?</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h2>Why 8 chips, not 4</h2>
+    <img src="fig_memory.svg" alt="Memory breakdown of Qwen3-30B-A3B">
+    <p class="take">The experts alone need 58 GB, at least 2 of v6e's 32 GB chips (3 with working space). On a 4-chip host, AFD could only try one split (1 attention : 3 expert). An 8-chip host allows 2:6, 3:5, 4:4, so the split-ratio question becomes testable. We fixed the budget at 8 chips for both systems.</p>
+  </div>
+</section>
+
+<!-- Column 2: method -->
+<section>
+  <div class="box">
+    <h2>Method so far</h2>
+    <h3>System</h3>
+    <ul>
+      <li><b>Model:</b> Qwen3-30B-A3B, bf16. 48 layers, 128 experts, 8 active per token (3B of 30B parameters per token).</li>
+      <li><b>Hardware:</b> one TPU v6e host, 8 chips on a 2D torus (ICI).</li>
+      <li><b>Software:</b> vLLM 0.32 with the <b>vllm-torchtpu</b> plugin (PyTorch model code compiled to TPU through torch_tpu / XLA). AFD will be built inside this stack.</li>
+    </ul>
+    <h3>Colocated baselines (the bar AFD must clear)</h3>
+    <ul>
+      <li><b>TP=8 + EP=8:</b> one copy of the model across all 8 chips.</li>
+      <li><b>DP=2 &times; TP=4 + EP=8:</b> two attention replicas sharing the experts across all 8 chips.</li>
+    </ul>
+    <p>We compare AFD against the better of the two at each load, not against a single fixed setup.</p>
+    <h3>Design choices and why</h3>
+    <ul>
+      <li><b>bf16 KV cache, not the recommended fp8.</b> With fp8 and one KV head per chip, the fast batched attention kernel decodes garbage after the first token (vllm-torchtpu issue #2435). Qwen3 has 4 KV heads, so at TP=4 or 8 we hit exactly that case. bf16 is correct and still fits.</li>
+      <li><b>Correctness gate:</b> every run first checks greedy answers with known results (e.g. counting to 30) before any timing.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h2>Benchmark protocol</h2>
+    <ul>
+      <li>Closed-loop load: 1, 4, 8, 16, 32, 64, 128 concurrent requests; 200 requests per point.</li>
+      <li>Random prompts of exactly 1024 input and 256 output tokens; greedy decoding; no prefix caching.</li>
+      <li>Every sweep run <b>twice</b>; points agree within 1&ndash;4%.</li>
+      <li>Profiles (XProf + Chrome traces, all 8 chips) taken in a separate run, so profiling overhead never touches the numbers.</li>
+    </ul>
+    <h3>Reproducible, hands-off runs</h3>
+    <div class="flow">
+      <div>Search zones for Spot capacity</div><span>&rarr;</span>
+      <div>VM installs, serves, checks answers</div><span>&rarr;</span>
+      <div>Sweeps + profile, upload each result</div><span>&rarr;</span>
+      <div>VM deletes itself</div>
+    </div>
+    <p class="small" style="margin-top:0.14in">A deadline timer uploads and deletes the VM even if a step hangs. Code: github.com/cx18121/afd-tpu-serving</p>
+  </div>
+</section>
+
+<!-- Column 3: results -->
+<section>
+  <div class="box">
+    <h2>Preliminary results: colocated frontier</h2>
+    <img src="fig_pareto.svg" alt="Throughput vs per-user speed">
+    <p class="take">Neither layout wins everywhere. One 8-chip replica is fastest per user up to 16 concurrent requests (188 &rarr; 152 tokens/s per user). Two 4-chip replicas give more total throughput at 32 and 128. AFD must beat this combined frontier, not one layout.</p>
+    <table>
+      <tr><th>Concurrency</th><th>1</th><th>16</th><th>32</th><th>128</th></tr>
+      <tr><td>TP=8: output tok/s</td><td>183</td><td>2,116</td><td>2,341*</td><td>5,204</td></tr>
+      <tr><td>DP=2: output tok/s</td><td>142</td><td>1,726</td><td>2,839</td><td>5,485</td></tr>
+      <tr><td>TP=8: per-user tok/s</td><td>188</td><td>152</td><td>79*</td><td>57</td></tr>
+      <tr><td>DP=2: per-user tok/s</td><td>146</td><td>127</td><td>111</td><td>62</td></tr>
+    </table>
+    <p class="small">* TP=8 at 32 is unstable: three runs gave 1,789 to 2,893 tok/s; in slow runs about 10% of requests decode 5&times; slower.</p>
+  </div>
+  <div class="box">
+    <h2>Latency under load</h2>
+    <img src="fig_latency.svg" alt="TTFT, TPOT and p99 ITL vs concurrency">
+    <p class="hyp"><b>Observation:</b> tail inter-token latency jumps from ~8 ms to 70&ndash;127 ms at <b>16 requests per replica</b> in both layouts (TP=8 at 16, DP=2 at 32). <b>Hypothesis:</b> decoding requests stall behind steps that also prefill new 1024-token prompts, and a 4-chip replica runs those steps slower (~125 ms vs ~70 ms). If so, this interference is a target for AFD and for splitting prefill from decode. We will check it in the traces.</p>
+  </div>
+</section>
+
+<!-- Column 4: lessons + plan -->
+<section>
+  <div class="box">
+    <h2>What we learned the hard way</h2>
+    <img src="fig_capacity.svg" alt="TPU requests per zone">
+    <ul>
+      <li><b>Capacity, not quota, was the bottleneck.</b> Every request in the course's three zones failed with <i>stockout</i> for 3 days. Searching all 20 v6e zones found Spot capacity in Mumbai (asia-south1), where all our runs happened.</li>
+      <li><b>The compile cache is 112 GB</b> for two layouts. It filled a 200 GB disk and is expensive to copy between regions; a cold start (about 15 min) is cheaper.</li>
+      <li><b>Documented defaults can be wrong:</b> the recommended KV setting gives wrong output for our model (#2435), and the documented cache variable is ignored by the code.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h2>Plan to Dec 7</h2>
+    <ul class="timeline">
+      <li><b>Nov 9&ndash;15:</b> split each decode step into attention, expert, and communication time from our traces (CCL-Bench); test the interference hypothesis. Design how to place attention and experts on separate chips inside vllm-torchtpu.</li>
+      <li><b>Nov 16&ndash;22:</b> AFD prototype on one 8-chip host: attention pool and expert pool joined by all-to-all dispatch/combine. Match the baseline's greedy outputs.</li>
+      <li><b>Nov 23&ndash;29:</b> sweep split ratios (2:6, 3:5, 4:4) with the same benchmark; first AFD vs. colocated Pareto plot.</li>
+      <li><b>Nov 30&ndash;Dec 6:</b> one optimization (microbatch overlap of dispatch with compute); final frontier; CCL-Bench entry with traces and workload cards.</li>
+    </ul>
+    <p class="small"><b>Risks:</b> TPU capacity (mitigated by the zone-searching launcher); how hard vllm-torchtpu makes it to place layers on different chips.</p>
+  </div>
+</section>
+</main>
+</body>
+</html>

@@ -11,3 +11,4 @@ cache/
 results/**/profile_c*.json
 .DS_Store
 .localtest/
+poster/preview/
