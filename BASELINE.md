@@ -4,7 +4,7 @@ This is the "before" point for the AFD study. Attention and experts share the
 same 8 TPU v6e chips. AFD will be compared against it at the same model,
 workload, and chip budget.
 
-> Status: done. Reference run `20261105-150348-charlie-spot-asia-south1-c`
+> Status: done; AFD built on top of it is in [AFD.md](AFD.md). Reference run `20261105-150348-charlie-spot-asia-south1-c`
 > (8 v6e chips, Spot, asia-south1-c, 2026-11-05): both layouts, every sweep
 > run twice, profile traces for both. One open question: TP=8 at c=32 is
 > unstable (see Results).
@@ -88,14 +88,23 @@ if the VM hits its max run duration.
 | | |
 |---|---|
 | Model | `Qwen/Qwen3-30B-A3B`, bf16 (48 layers, 128 experts, 8 active per token, 4 KV heads) |
-| Hardware | 1 x `ct6e-standard-8t` (8 TPU v6e chips, 32 GB HBM each), FLEX_START |
-| Workload | `vllm bench serve`, random dataset, 1024 input / 256 output tokens, 200 prompts, `--ignore-eos`, temperature 0, seed 42 |
+| Hardware | 1 x `ct6e-standard-8t` (8 TPU v6e chips, 32 GB HBM each), Spot (flex-start had no capacity) |
+| Workload | `vllm bench serve`, random dataset, exactly 1024 input / 256 output tokens, 200 prompts, `--ignore-eos`, temperature 0, seed 42 |
 | Concurrency | 1, 4, 8, 16, 32, 64, 128 (one Pareto point each) |
 | Layouts | `tp8_ep`: TP=8, EP=8. `dp2_tp4_ep`: 2 replicas of TP=4, EP=8 across both |
 
 Two layouts give a stronger colocated frontier: AFD should beat the best
 colocated setup, not a weak one. The 4-chip layout `tp4_ep` runs on a
 `ct6e-standard-4t` with the same scripts.
+
+Each layout also runs GSM8K accuracy (`afd/gsm8k_eval.py`, lm-eval 0.4.13,
+5-shot) unless `GSM8K=0`; no TPU run has used it yet. A fuller protocol for
+the final round is available through environment variables read by
+`scripts/vm/vm_baseline.sh`: `WORKLOADS="1024:256 1024:1024"`,
+`LENGTHS=range` (lengths uniform in [0.8L, L], the InferenceX convention),
+`NUM_PROMPTS=auto` (max(5c, 40) prompts, about 5 full waves), `SHAREGPT=1`
+(one real-text point), `SWEEP=0` (GSM8K only). Results from the default
+protocol are labelled `1024x256-exact` in `results/summary.csv`.
 
 ## Server settings
 
@@ -154,6 +163,11 @@ Container flags follow the vllm-torchtpu Docker guide: `--privileged
   and the image, the 200 GB disk filled. The DP=2 sweep had already finished,
   but its profile trace is incomplete. Fixed: the disk is now 300 GB and the
   cache is no longer uploaded (the 112 GB copy was deleted from the bucket).
+- **Stale compiled programs across layouts.** A VM that ran `dp2_tp4_ep`
+  and then AFD (32 experts per chip instead of 16) reused a cached 16-expert
+  executable and failed with `RuntimeProgramInputMismatch`; the cache key does
+  not cover weight shapes. Each layout now has its own cache directory
+  (`/opt/afd/cache/<layout>`).
 - Possibly relevant, not yet hit: concurrent cold compiles sharing one cache
   can collide (#1566, may affect the DP=2 layout), and a warm start may not
   be much faster than a cold one (#1644).
@@ -171,7 +185,8 @@ Qwen3-30B-A3B, 8 x TPU v6e, 1024 input / 256 output tokens, 200 prompts per
 point, each sweep run twice on one VM; values are the mean of the two runs.
 Every point completed 200/200 requests with 0 failures, and both layouts
 passed the greedy sanity check. Full table with p99s and min/max:
-`results/colocated/summary.csv`. Per-user tok/s is 1000 / mean TPOT, the
+`results/summary.csv` (it pools all runs, so its DP=2xTP=4 rows include the
+third run). Per-user tok/s is 1000 / mean TPOT, the
 decode speed one user sees.
 
 | Concurrency | TP=8+EP output tok/s | per-user tok/s | mean TTFT | DP=2xTP=4+EP output tok/s | per-user tok/s | mean TTFT |
@@ -185,7 +200,9 @@ decode speed one user sees.
 | 128 | 5,204 | 57 | 924 ms | **5,485** | **62** | 1,004 ms |
 
 - **Reproducible.** The two runs of each point agree within 1 to 4%, except
-  TP=8 at c=32. The first full run (`20261105-134448-...`) matched too.
+  TP=8 at c=32. The first full run (`20261105-134448-...`) matched too, and a
+  third DP=2xTP=4 run on 2026-11-06 (`20261106-162400-...`, files `_r3`)
+  agrees within 5% except at c=64 (2,960 vs about 4,000 output tok/s).
 - **Which layout wins.** TP=8 is faster per user up to c=16 and about tied at
   c=64; two TP=4 replicas win at c=32 and c=128. The colocated frontier takes
   the better layout at each point.
@@ -209,7 +226,7 @@ decode speed one user sees.
 |---|---|
 | Everything from one run | `gs://cs5470-fa26-team27-data/colocated/runs/<run id>/` (results, profile, logs, status.txt) |
 | Per-run benchmark JSON | `results/colocated/<layout>/colocated_c<N>.json` (copied by `fetch_results.sh`) |
-| Summary | `results/colocated/summary.csv` |
+| Summary | `results/summary.csv`, `results/slo.csv` (`scripts/summarize.py results`) |
 | Profile traces (c=16, separate unmeasured run) | `runs/<run id>/profile/<layout>/`; reference: `runs/20261105-150348-charlie-spot-asia-south1-c/profile/{tp8_ep,dp2_tp4_ep}/` (3.5 GB, 3.8 GB) |
 | CCL-Bench workload card | `results/colocated/<layout>/workload_card.yaml` |
 | Server and benchmark logs | `runs/<run id>/logs/` |
@@ -234,7 +251,11 @@ the profiled run is separate from the measured sweep.
 | 2026-11-05 | asia-south1-b | ct6e-standard-1t Spot (smoke) | Ran 9 min; smoke passed end to end; self-deleted | 0.15 |
 | 2026-11-05 | asia-south1-c | ct6e-standard-8t Spot (full baseline) | Ran 73 min; both layouts measured; disk full in last profile; self-deleted | 9.7 |
 | 2026-11-05 | asia-south1-c | ct6e-standard-8t Spot (repeat run, 300 GB disk) | Ran 92 min; both layouts x2 repeats + both profiles; self-deleted | 12.3 |
+| 2026-11-06 | asia-south1-c | ct6e-standard-8t Spot x8 (AFD feasibility tests, AFD.md) | 6 to 25 min each, 90 min total | 12.0 |
+| 2026-11-06 | asia-south1-c | ct6e-standard-8t Spot (dp2_tp4_ep rerun; AFD hit stale cache) | Ran 37 min; self-deleted | 4.9 |
+| 2026-11-06 | asia-south1-c | ct6e-standard-8t Spot (AFD sweep + profile) | Ran 36 min; self-deleted | 4.8 |
 
-Total: about 22 v6e chip-hours (roughly $30 at the $1.35/chip-hour flex price;
-Spot list price may differ), plus an estimated $9 to $13 for one 112 GB
-cross-region cache upload, since deleted.
+Total: about 44 v6e chip-hours of VM time from status logs, roughly 47 with
+boot and shutdown (about $60 at the $1.35/chip-hour flex price; Spot prices
+differ and have not been checked against billing), plus an estimated $9 to
+$13 for one 112 GB cross-region cache upload, since deleted.
