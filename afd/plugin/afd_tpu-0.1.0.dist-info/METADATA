@@ -1,0 +1,4 @@
+Metadata-Version: 2.1
+Name: afd-tpu
+Version: 0.1.0
+Summary: AFD role split plugin for vLLM on TPU

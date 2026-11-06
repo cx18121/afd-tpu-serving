@@ -70,7 +70,7 @@ systemd-run --unit=afd-deadline --on-active="${DEADLINE_MIN}m" \
 DIR=/root/afd-scripts
 mkdir -p "$DIR"
 for i in 1 2 3 4 5; do
-  timeout 300 gcloud storage cp "$RUN_URI/scripts/*" "$DIR/" && break
+  timeout 300 gcloud storage cp -r "$RUN_URI/scripts/*" "$DIR/" && break
   if [ "$i" = 5 ]; then
     echo "$(date '+%F %T %Z') FAILED to download scripts" >> "$WORKDIR/logs/status.txt"
     exec /usr/local/bin/afd-cleanup --force

@@ -90,6 +90,7 @@ if [ "$AUTO" = --auto ]; then
   snap=$(mktemp -d)
   write_config_snapshot "$snap/config.sh"
   gcloud storage cp "$snap/config.sh" "$HERE"/vm/*.sh "$HERE"/../afd/*.py "$RUN_URI/scripts/" --quiet
+  gcloud storage cp -r "$HERE/../afd/plugin" "$RUN_URI/scripts/" --quiet
   rm -rf "$snap"
   AUTO_ARGS=(--metadata-from-file="startup-script=$HERE/vm/startup.sh"
     --metadata="afd-run-id=$RUN_ID,afd-run-uri=$RUN_URI,afd-steps=$STEPS,afd-deadline-min=$DEADLINE_MIN,afd-workdir=$VM_WORKDIR,afd-self-delete=${AFD_SELF_DELETE:-true}")

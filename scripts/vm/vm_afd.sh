@@ -7,6 +7,7 @@
 # Writes $VM_WORKDIR/results/<step>/ and uploads it to the run folder.
 set -Eeuo pipefail
 source "$(dirname "$0")/config.sh"
+HERE=$(cd "$(dirname "$0")" && pwd)
 
 STEP=${1:?usage: vm_afd.sh afd_xfer}
 W=$VM_WORKDIR
@@ -23,7 +24,7 @@ case "$STEP" in
     # torchrun with a timeout, so a hang shows up as TIMEOUT, not a stuck VM.
     timeout 5400 docker run --rm --name afd-test \
       --privileged --net=host -v /dev/shm:/dev/shm --shm-size 150gb \
-      -v "$(dirname "$0")/transfer_test.py:/afd/transfer_test.py:ro" \
+      -v "$HERE/transfer_test.py:/afd/transfer_test.py:ro" \
       -v "$W/results/$STEP:/out" \
       -e PYTHONUNBUFFERED=1 \
       --entrypoint python3 "$IMAGE" \
@@ -39,7 +40,7 @@ case "$STEP" in
     timeout 2700 docker run --rm --name afd-test \
       --privileged --net=host -v /dev/shm:/dev/shm --shm-size 150gb \
       --ulimit nofile=1048576:1048576 \
-      -v "$(dirname "$0")/jax_role_test.py:/afd/jax_role_test.py:ro" \
+      -v "$HERE/jax_role_test.py:/afd/jax_role_test.py:ro" \
       -v "$W/results/$STEP:/out" \
       -e PYTHONUNBUFFERED=1 -e TORCH_DEVICE_BACKEND_AUTOLOAD=0 \
       --entrypoint python3 "$IMAGE" \

@@ -13,6 +13,7 @@
 # check, then stops at the first `vllm bench serve` (exit 132). The benchmark
 # part needs an x86 machine with AVX.
 set -euo pipefail
+MODE=${1:-tp8_ep}   # any vm_baseline.sh mode, e.g. afd_dp2
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 T="$REPO/.localtest"
 rm -rf "$T"
@@ -44,6 +45,7 @@ echo "test-run" > "$T/work/run_id"
 # Stage the scripts the way the VM has them: config.sh next to the vm/ scripts.
 mkdir -p "$T/scripts"
 cp "$REPO"/scripts/vm/*.sh "$T/scripts/"
+cp -r "$REPO/afd/plugin" "$T/scripts/plugin"
 VM_WORKDIR="$T/work" bash -c "source '$REPO/scripts/config.sh'; write_config_snapshot '$T/scripts/config.sh'"
 
 # The fake VM uses the same absolute paths as this machine, because the Docker
@@ -54,11 +56,11 @@ docker run --rm --net=host \
   docker:cli sh -c "
     apk add -q bash curl python3 coreutils >/dev/null
     source $T/env.sh
-    bash $T/scripts/vm_baseline.sh tp8_ep
+    bash $T/scripts/vm_baseline.sh $MODE
   " 2>&1 | tee "$T/run.log"
 status=${PIPESTATUS[0]}
 
-echo "== status file: $(cat "$T/work/logs/tp8_ep.status" 2>/dev/null)"
+echo "== status file: $(cat "$T/work/logs/$MODE.status" 2>/dev/null)"
 echo "== uploads that would have happened:"
 sort -u "$T/work/gcloud_calls.log" 2>/dev/null | sed "s#$T#<test>#g"
 if [ -d "$T/work/results/colocated/tp8_ep" ]; then

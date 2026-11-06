@@ -60,7 +60,15 @@ class Handler(BaseHTTPRequestHandler):
                 reply = "!!!!!!!!"
             self._json(200, {"choices": [{"index": 0, "message": {"role": "assistant", "content": reply}}]})
         elif self.path == "/v1/completions":
-            self._stream(self._body())
+            req = self._body()
+            # Record headers so tests can check request pinning.
+            sys.stderr.write(f"mock: headers {dict(self.headers)}\n")
+            if req.get("stream"):
+                self._stream(req)
+            else:
+                toks = [" a"] * int(req.get("max_tokens") or 16)
+                self._json(200, {"choices": [{"index": 0, "text": "".join(toks),
+                                              "logprobs": {"tokens": toks}}]})
         else:
             self._json(404, {"error": self.path})
 

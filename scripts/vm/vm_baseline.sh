@@ -11,6 +11,7 @@
 # Writes $VM_WORKDIR/logs/<mode>.status as RUNNING, DONE, or FAILED.
 set -Eeuo pipefail
 source "$(dirname "$0")/config.sh"
+HERE=$(cd "$(dirname "$0")" && pwd)
 
 MODE=${1:?usage: vm_baseline.sh smoke|tp8_ep|dp2_tp4_ep|tp4_ep}
 W=$VM_WORKDIR
@@ -52,7 +53,7 @@ case "$MODE" in
     WARMUPS=""
     PROFILE_CONCURRENCY=""
     ;;
-  tp8_ep|dp2_tp4_ep|tp4_ep)
+  tp8_ep|dp2_tp4_ep|tp4_ep|afd_dp2)
     MODEL=Qwen/Qwen3-30B-A3B
     case "$MODE" in
       tp8_ep)     SERVE_ARGS=(--tensor-parallel-size 8 "${MOE_ARGS[@]}") ;;
@@ -60,6 +61,15 @@ case "$MODE" in
       dp2_tp4_ep) SERVE_ARGS=(--data-parallel-size 2 --tensor-parallel-size 4
                     --api-server-count 1 "${MOE_ARGS[@]}") ;;
       tp4_ep)     SERVE_ARGS=(--tensor-parallel-size 4 "${MOE_ARGS[@]}") ;;
+      # AFD (afd/plugin/afd_tpu): same layout as dp2_tp4_ep, but DP replica 0
+      # runs attention for every request and replica 1 holds the experts.
+      afd_dp2)    SERVE_ARGS=(--data-parallel-size 2 --tensor-parallel-size 4
+                    --api-server-count 1 "${MOE_ARGS[@]}")
+                  EXTRA_DOCKER=(-v "$HERE/plugin:/afd_plugin:ro"
+                    -e AFD_ROLE_SPLIT=1 -e AFD_ATTN_DP_RANK=0
+                    -e PYTHONPATH=/afd_plugin:/workspace/vllm-torchtpu/src:/workspace/vllm-torchtpu)
+                  # Every request goes to the attention replica.
+                  PIN_HEADER="X-data-parallel-rank=0" ;;
     esac
     CONCURRENCIES=$MOE_CONCURRENCIES
     NUM_PROMPTS="${NUM_PROMPTS:-200}"
@@ -70,7 +80,13 @@ case "$MODE" in
   *) echo "unknown mode $MODE" >&2; exit 2 ;;
 esac
 
-RUN_NAME=$([ "$MODE" = smoke ] && echo smoke || echo "colocated/$MODE")
+case "$MODE" in
+  smoke) RUN_NAME=smoke ;;
+  afd_*) RUN_NAME="afd/$MODE" ;;
+  *)     RUN_NAME="colocated/$MODE" ;;
+esac
+EXTRA_DOCKER=(${EXTRA_DOCKER[@]+"${EXTRA_DOCKER[@]}"})
+PIN_HEADER=${PIN_HEADER:-}
 RESULTS=$W/results/$RUN_NAME
 PROFILE_DIR=$W/profile/$MODE
 mkdir -p "$RESULTS" "$PROFILE_DIR"
@@ -106,6 +122,7 @@ docker run -d --name $CONTAINER \
   -e TORCH_TPU_TIER3_COMPILATION_CACHE_ROOT=/cache/torch_tpu_tier3 \
   -e VLLM_CACHE_ROOT=/cache/vllm \
   -e PYTHONUNBUFFERED=1 \
+  ${EXTRA_DOCKER[@]+"${EXTRA_DOCKER[@]}"} \
   "${SERVER_CMD[@]}" >/dev/null
 docker logs -f $CONTAINER > "$SERVER_LOG" 2>&1 &
 
@@ -134,9 +151,13 @@ echo "$(date -Is) server healthy after $(( $(date +%s) - start ))s" | tee "$RESU
 
 # Correctness check: greedy replies with known answers. The #2435 failure mode
 # is a correct first token followed by garbage, so check long outputs too.
-python3 - "$MODEL" "$PORT" "$RESULTS/sanity.json" <<'PY'
+python3 - "$MODEL" "$PORT" "$RESULTS/sanity.json" "$PIN_HEADER" "$RESULTS/greedy.json" <<'PY'
 import json, sys, urllib.request
-model, port, out = sys.argv[1], sys.argv[2], sys.argv[3]
+model, port, out, pin, greedy_out = sys.argv[1:6]
+headers = {"Content-Type": "application/json"}
+if pin:
+    k, v = pin.split("=", 1)
+    headers[k] = v
 cases = [
     ("What is the capital of France? Answer in one word.", "Paris"),
     ("What is 17 * 23? Reply with just the number.", "391"),
@@ -149,7 +170,7 @@ for prompt, expect in cases:
             "messages": [{"role": "user", "content": prompt}],
             "chat_template_kwargs": {"enable_thinking": False}}
     req = urllib.request.Request(f"http://localhost:{port}/v1/chat/completions",
-                                 json.dumps(body).encode(), {"Content-Type": "application/json"})
+                                 json.dumps(body).encode(), headers)
     reply = json.load(urllib.request.urlopen(req, timeout=300))["choices"][0]["message"]["content"]
     # Ignore spacing and case: "28,29,30" and "28, 29, 30" are both right.
     squash = lambda t: "".join(t.lower().split())
@@ -158,6 +179,25 @@ for prompt, expect in cases:
     results.append({"prompt": prompt, "expect": expect, "reply": reply, "pass": passed})
     print(("PASS" if passed else "FAIL"), repr(prompt), "->", repr(reply[:300]))
 json.dump({"all_pass": ok, "cases": results}, open(out, "w"), indent=2)
+
+# Greedy reference: the first 32 tokens of fixed raw prompts, compared
+# token by token across layouts (AFD must match colocated serving).
+prompts = [
+    "The three laws of thermodynamics are",
+    "def fibonacci(n):",
+    "In 1969, the Apollo 11 mission",
+    "A mixture-of-experts language model routes each token to",
+]
+greedy = []
+for p in prompts:
+    body = {"model": model, "prompt": p, "temperature": 0, "max_tokens": 32,
+            "logprobs": 1}
+    req = urllib.request.Request(f"http://localhost:{port}/v1/completions",
+                                 json.dumps(body).encode(), headers)
+    choice = json.load(urllib.request.urlopen(req, timeout=300))["choices"][0]
+    greedy.append({"prompt": p, "text": choice["text"],
+                   "tokens": (choice.get("logprobs") or {}).get("tokens")})
+json.dump(greedy, open(greedy_out, "w"), indent=2)
 sys.exit(0 if ok else 1)
 PY
 
@@ -169,7 +209,8 @@ bench() {  # bench CONCURRENCY NUM_PROMPTS RESULT_NAME [extra args...]
     --num-prompts "$n" --max-concurrency "$c" --request-rate inf \
     --ignore-eos --temperature 0 --seed 42 \
     --percentile-metrics ttft,tpot,itl,e2el --metric-percentiles 50,90,99 \
-    --save-result --result-dir "/results/$RUN_NAME" --result-filename "$name.json" "$@"
+    --save-result --result-dir "/results/$RUN_NAME" --result-filename "$name.json" \
+    ${PIN_HEADER:+--header "$PIN_HEADER"} "$@"
 }
 
 for w in $WARMUPS; do

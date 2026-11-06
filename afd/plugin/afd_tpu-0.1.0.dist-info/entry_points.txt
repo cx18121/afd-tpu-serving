@@ -1,0 +1,2 @@
+[vllm.general_plugins]
+afd_tpu = afd_tpu:register
