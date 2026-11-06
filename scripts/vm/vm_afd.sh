@@ -34,8 +34,11 @@ case "$STEP" in
     ;;
   afd_jax)
     # Single process driving all 8 chips through JAX (afd/jax_role_test.py).
+    # It needs far more open files than Docker's default limit allows
+    # (the TPU runtime crashed with "Too many open files" without this).
     timeout 2700 docker run --rm --name afd-test \
       --privileged --net=host -v /dev/shm:/dev/shm --shm-size 150gb \
+      --ulimit nofile=1048576:1048576 \
       -v "$(dirname "$0")/jax_role_test.py:/afd/jax_role_test.py:ro" \
       -v "$W/results/$STEP:/out" \
       -e PYTHONUNBUFFERED=1 -e TORCH_DEVICE_BACKEND_AUTOLOAD=0 \
