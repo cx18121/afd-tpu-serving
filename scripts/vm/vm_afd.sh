@@ -2,6 +2,7 @@
 # Runs on the TPU VM as root (called by autorun.sh for steps named afd_*).
 #
 #   vm_afd.sh afd_xfer    AFD transfer feasibility test (afd/transfer_test.py)
+#   vm_afd.sh afd_jax     per-role branches in one JAX program (afd/jax_role_test.py)
 #
 # Writes $VM_WORKDIR/results/<step>/ and uploads it to the run folder.
 set -Eeuo pipefail
@@ -29,6 +30,17 @@ case "$STEP" in
       /afd/transfer_test.py --launch --platform tpu --out /out \
         --designs "${AFD_DESIGNS:-homo,hetero_ordered}" \
         --splits 4,2 --tokens 1,8,32,128 --timeout 300 \
+      2>&1 | tee "$W/logs/$STEP.log"
+    ;;
+  afd_jax)
+    # Single process driving all 8 chips through JAX (afd/jax_role_test.py).
+    timeout 2700 docker run --rm --name afd-test \
+      --privileged --net=host -v /dev/shm:/dev/shm --shm-size 150gb \
+      -v "$(dirname "$0")/jax_role_test.py:/afd/jax_role_test.py:ro" \
+      -v "$W/results/$STEP:/out" \
+      -e PYTHONUNBUFFERED=1 -e TORCH_DEVICE_BACKEND_AUTOLOAD=0 \
+      --entrypoint python3 "$IMAGE" \
+      /afd/jax_role_test.py --out /out --splits 4,2 --tokens 1,8,32,128 --work 40 \
       2>&1 | tee "$W/logs/$STEP.log"
     ;;
   *) echo "unknown AFD step $STEP" >&2; exit 2 ;;
