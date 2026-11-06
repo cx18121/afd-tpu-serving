@@ -27,7 +27,7 @@ case "$STEP" in
       -e PYTHONUNBUFFERED=1 \
       --entrypoint python3 "$IMAGE" \
       /afd/transfer_test.py --launch --platform tpu --out /out \
-        --splits 4,2 --tokens 1,8,32,128 --timeout 600 \
+        --splits 4,2 --tokens 1,8,32,128 --timeout 300 \
       2>&1 | tee "$W/logs/$STEP.log"
     ;;
   *) echo "unknown AFD step $STEP" >&2; exit 2 ;;

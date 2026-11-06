@@ -1,0 +1,11 @@
+{
+ "rank": 5,
+ "role": "expert",
+ "design": "p2p",
+ "n_attn": 4,
+ "world": 8,
+ "points": {
+  "1": {}
+ },
+ "last_stage": "B=1 timing k=1"
+}

@@ -1,0 +1,38 @@
+[
+ {
+  "design": "homo",
+  "split": "4:4",
+  "status": "ok",
+  "seconds": 48,
+  "last_stage": [
+   "B=128 done"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": 16.83874999969248,
+    "per_layer_us_attn": 16.197500000370013,
+    "correct": true,
+    "rel_err_max": 0.005980842269211121
+   },
+   "8": {
+    "per_layer_us_max": 16.33556250002499,
+    "per_layer_us_attn": 14.938906249373218,
+    "correct": true,
+    "rel_err_max": 0.006729681023607857
+   },
+   "32": {
+    "per_layer_us_max": 39.46624999962012,
+    "per_layer_us_attn": 31.340328124684902,
+    "correct": true,
+    "rel_err_max": 0.006385676140830506
+   },
+   "128": {
+    "per_layer_us_max": 204.9093750020603,
+    "per_layer_us_attn": 204.3829687510268,
+    "correct": true,
+    "rel_err_max": 0.006355827044464063
+   }
+  }
+ }
+]

@@ -133,20 +133,29 @@ def p2p_layer(rank, world, n_attn, b, w, torch):
 
     attn = rank < n_attn
     n_ffn = world - n_attn
+    # Every transfer gets its own tag, as vllm-torchtpu's pipeline ring does
+    # (pp_ring._tag): reusing one tag for back-to-back transfers hung on TPU.
+    # All ranks call layer() the same number of times, so counters agree.
+    count = [0]
+
+    def tags():
+        count[0] += 1
+        return 2 * count[0], 2 * count[0] + 1  # dispatch tag, combine tag
 
     def layer(h):
+        t_dispatch, t_combine = tags()
         if attn:
-            reqs = [dist.isend(h.contiguous(), dst=e) for e in range(n_attn, world)]
+            reqs = [dist.isend(h.contiguous(), dst=e, tag=t_dispatch) for e in range(n_attn, world)]
             outs = [torch.empty_like(h) for _ in range(n_ffn)]
-            reqs += [dist.irecv(o, src=e) for o, e in zip(outs, range(n_attn, world))]
+            reqs += [dist.irecv(o, src=e, tag=t_combine) for o, e in zip(outs, range(n_attn, world))]
             for r in reqs:
                 r.wait()
             return torch.stack(outs).sum(0) / n_ffn
         ins = [torch.empty(b, H, dtype=h.dtype, device=h.device) for _ in range(n_attn)]
-        reqs = [dist.irecv(x, src=a) for a, x in zip(range(n_attn), ins)]
+        reqs = [dist.irecv(x, src=a, tag=t_dispatch) for a, x in zip(range(n_attn), ins)]
         for r in reqs:
             r.wait()
-        reqs = [dist.isend((x @ w).contiguous(), dst=a) for a, x in zip(range(n_attn), ins)]
+        reqs = [dist.isend((x @ w).contiguous(), dst=a, tag=t_combine) for a, x in zip(range(n_attn), ins)]
         for r in reqs:
             r.wait()
         return h
@@ -321,14 +330,17 @@ def launch(args):
                    "errors": sorted({x["error"][:300] for x in ranks if "error" in x}),
                    "points": {}}
             for b in args.tokens:
-                pts = [x["points"].get(str(b)) for x in ranks if x.get("points", {}).get(str(b))]
-                attn_pts = [p for p in pts if "correct" in p]
+                # Points may be partial (a rank hung before timing them).
+                pts = [x["points"][str(b)] for x in ranks if str(b) in x.get("points", {})]
+                timed = [p for p in pts if "per_layer_us" in p]
+                checked = [p for p in pts if "correct" in p]
+                timed_attn = [p for p in timed if "correct" in p]
                 if pts:
                     row["points"][b] = {
-                        "per_layer_us_max": max(p["per_layer_us"] for p in pts),
-                        "per_layer_us_attn": statistics.mean(p["per_layer_us"] for p in attn_pts) if attn_pts else None,
-                        "correct": all(p["correct"] for p in attn_pts) if attn_pts else None,
-                        "rel_err_max": max(p["rel_err"] for p in attn_pts) if attn_pts else None,
+                        "per_layer_us_max": max(p["per_layer_us"] for p in timed) if timed else None,
+                        "per_layer_us_attn": statistics.mean(p["per_layer_us"] for p in timed_attn) if timed_attn else None,
+                        "correct": all(p["correct"] for p in checked) if checked else None,
+                        "rel_err_max": max(p["rel_err"] for p in checked) if checked else None,
                     }
             summary.append(row)
             print(f"   {status} in {row['seconds']}s; last_stage={row['last_stage']}; errors={row['errors'][:1]}", flush=True)
