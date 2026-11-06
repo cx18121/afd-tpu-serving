@@ -1,0 +1,82 @@
+[
+ {
+  "split": "4:4",
+  "tokens": 1,
+  "branch_rel_err": 0.0035174547228962183,
+  "branch_correct": true,
+  "branch_per_layer_us": 145.69856250012947,
+  "both_rel_err": 0.0035174547228962183,
+  "both_correct": true,
+  "both_per_layer_us": 245.01562500045537
+ },
+ {
+  "split": "4:4",
+  "tokens": 8,
+  "branch_rel_err": 0.003947312477976084,
+  "branch_correct": true,
+  "branch_per_layer_us": 111.28875000032679,
+  "both_rel_err": 0.003947312477976084,
+  "both_correct": true,
+  "both_per_layer_us": 125.49625000168874
+ },
+ {
+  "split": "4:4",
+  "tokens": 32,
+  "branch_rel_err": 0.0038221259601414204,
+  "branch_correct": true,
+  "branch_per_layer_us": 131.45125000058044,
+  "both_rel_err": 0.0038221259601414204,
+  "both_correct": true,
+  "both_per_layer_us": 146.50562500051478
+ },
+ {
+  "split": "4:4",
+  "tokens": 128,
+  "branch_rel_err": 0.005025326274335384,
+  "branch_correct": true,
+  "branch_per_layer_us": 228.60818750025658,
+  "both_rel_err": 0.005025326274335384,
+  "both_correct": true,
+  "both_per_layer_us": 269.2025000001763
+ },
+ {
+  "split": "2:6",
+  "tokens": 1,
+  "branch_rel_err": 0.006101594772189856,
+  "branch_correct": true,
+  "branch_per_layer_us": 148.7469374996664,
+  "both_rel_err": 0.006101594772189856,
+  "both_correct": true,
+  "both_per_layer_us": 243.78756249809896
+ },
+ {
+  "split": "2:6",
+  "tokens": 8,
+  "branch_rel_err": 0.006267229560762644,
+  "branch_correct": true,
+  "branch_per_layer_us": 109.49687499994809,
+  "both_rel_err": 0.006267229560762644,
+  "both_correct": true,
+  "both_per_layer_us": 127.32506249868436
+ },
+ {
+  "split": "2:6",
+  "tokens": 32,
+  "branch_rel_err": 0.006132014561444521,
+  "branch_correct": true,
+  "branch_per_layer_us": 129.22693750105907,
+  "both_rel_err": 0.006132014561444521,
+  "both_correct": true,
+  "both_per_layer_us": 146.51124999787157
+ },
+ {
+  "split": "2:6",
+  "tokens": 128,
+  "branch_rel_err": 0.006460756994783878,
+  "branch_correct": true,
+  "branch_per_layer_us": 228.304437499105,
+  "both_rel_err": 0.006460756994783878,
+  "both_correct": true,
+  "both_per_layer_us": 269.018124999576
+ }
+]
