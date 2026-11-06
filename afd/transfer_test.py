@@ -33,6 +33,7 @@ of 5 runs, so launch and host overhead cancel out.
 import argparse
 import json
 import os
+import signal
 import statistics
 import subprocess
 import sys
@@ -43,7 +44,7 @@ from pathlib import Path
 H = 2048  # Qwen3-30B-A3B hidden size
 SEED = 1234
 REPS = 16
-DESIGNS = ("hetero", "homo", "uneven", "p2p")
+DESIGNS = ("homo", "p2p", "uneven", "hetero")  # hetero last: it may hang
 
 
 # ----------------------------------------------------------------- helpers
@@ -163,6 +164,13 @@ def run_worker(args):
     res = {"rank": rank, "role": "attention" if attn else "expert", "design": args.design,
            "n_attn": n_attn, "world": world, "points": {}}
     out_path = Path(args.out) / f"{args.design}_a{n_attn}_rank{rank}.json"
+
+    def mark(stage):
+        # Written after every stage, so a hang still shows how far each rank got.
+        res["last_stage"] = stage
+        out_path.write_text(json.dumps(res, indent=1))
+        print(f"STAGE rank={rank} {args.design} A={n_attn}: {stage}", flush=True)
+
     try:
         if args.platform == "tpu":
             import torch_tpu  # noqa: F401
@@ -179,6 +187,9 @@ def run_worker(args):
             dtype = torch.float32
         group = dist.group.WORLD
         torch.empty(1, device=device).cpu()
+        mark("initialized")
+        if os.environ.get("AFD_TEST_HANG") == args.design and rank == 0:
+            time.sleep(10**6)  # test hook: simulate a hang
         # AFD_CONTROL=1 gives expert ranks the wrong weights: every point must
         # then fail the correctness check (proves the check can fail).
         seed_rank = rank + (100 if os.environ.get("AFD_CONTROL") == "1" else 0)
@@ -211,23 +222,28 @@ def run_worker(args):
 
             # Correctness: one layer vs float32 reference.
             one = runner(1)
+            mark(f"B={b} compiled+running 1 layer")
             out = one(h0, *extra).cpu().float()
+            mark(f"B={b} 1 layer done")
             if attn:
                 ref = sum(attn_input(rank, b, torch) @ expert_weight(e, torch)
                           for e in range(n_attn, world)) / (world - n_attn)
                 err = (out - ref).abs().max().item() / max(ref.abs().max().item(), 1e-9)
                 point["rel_err"] = err
                 point["correct"] = err < 3e-2
+            res["points"][str(b)] = dict(point)
 
             # Timing.
             times = {}
             for k in (1, 1 + REPS):
                 fn = one if k == 1 else runner(k)
+                mark(f"B={b} timing k={k}")
                 for _ in range(2):
                     fn(h0, *extra).cpu()
                 samples = []
                 for _ in range(5):
-                    dist.barrier()
+                    if os.environ.get("AFD_BARRIER") == "1":
+                        dist.barrier()
                     t0 = time.perf_counter()
                     fn(h0, *extra).cpu()
                     samples.append(time.perf_counter() - t0)
@@ -235,6 +251,7 @@ def run_worker(args):
             point["per_layer_us"] = (times[1 + REPS] - times[1]) / REPS * 1e6
             point["single_call_us"] = times[1] * 1e6
             res["points"][str(b)] = point
+            mark(f"B={b} done")
             if rank == 0:
                 print(f"POINT {args.design} A={n_attn} B={b}: {point}", flush=True)
     except BaseException as exc:  # noqa: BLE001
@@ -272,24 +289,35 @@ def launch(args):
                    "--tokens", ",".join(map(str, args.tokens)), "--out", str(out)]
             t0 = time.time()
             print(f"== {design} split {n_attn}:{args.world - n_attn}", flush=True)
-            try:
-                p = subprocess.run(cmd, env=env, timeout=args.timeout, text=True,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   errors="replace")
-                status = "ok" if p.returncode == 0 else f"exit {p.returncode}"
-                log = p.stdout
-            except subprocess.TimeoutExpired as exc:
-                status, log = "TIMEOUT (likely hang)", (exc.output or "")
-                if isinstance(log, bytes):
-                    log = log.decode(errors="replace")
-                subprocess.run(["pkill", "-f", f"--design {design}"], check=False)
-            (out / f"{design}_a{n_attn}.log").write_text(log)
+            log_path = out / f"{design}_a{n_attn}.log"
+            with open(log_path, "w") as log_f:
+                proc = subprocess.Popen(cmd, env=env, stdout=log_f, stderr=subprocess.STDOUT,
+                                        start_new_session=True)
+                try:
+                    rc = proc.wait(timeout=args.timeout)
+                    status = "ok" if rc == 0 else f"exit {rc}"
+                except subprocess.TimeoutExpired:
+                    status = "TIMEOUT (likely hang)"
+                # Kill the whole group, workers included, so no process keeps
+                # the TPU devices open for the next design.
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait()
+                # torchrun puts workers in their own process groups, so also
+                # kill them by command line ("--" so pkill does not read the
+                # pattern as its own options).
+                subprocess.run(["pkill", "-9", "-f", "--", f"{__file__} --worker"], check=False)
+                time.sleep(5)
+            log = log_path.read_text(errors="replace")
             ranks = []
             for r in range(args.world):
                 f = out / f"{design}_a{n_attn}_rank{r}.json"
                 ranks.append(json.loads(f.read_text()) if f.exists() else {"rank": r, "error": "no result"})
             row = {"design": design, "split": f"{n_attn}:{args.world - n_attn}",
                    "status": status, "seconds": round(time.time() - t0),
+                   "last_stage": sorted({x.get("last_stage", "none") for x in ranks}),
                    "errors": sorted({x["error"][:300] for x in ranks if "error" in x}),
                    "points": {}}
             for b in args.tokens:
@@ -303,7 +331,7 @@ def launch(args):
                         "rel_err_max": max(p["rel_err"] for p in attn_pts) if attn_pts else None,
                     }
             summary.append(row)
-            print(f"   {status} in {row['seconds']}s; errors={row['errors'][:1]}", flush=True)
+            print(f"   {status} in {row['seconds']}s; last_stage={row['last_stage']}; errors={row['errors'][:1]}", flush=True)
             for b, pt in row["points"].items():
                 print(f"   B={b}: {pt}", flush=True)
             (out / "summary.json").write_text(json.dumps(summary, indent=1))
