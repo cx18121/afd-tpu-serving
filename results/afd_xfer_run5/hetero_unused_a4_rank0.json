@@ -1,0 +1,14 @@
+{
+ "rank": 0,
+ "role": "attention",
+ "design": "hetero_unused",
+ "n_attn": 4,
+ "world": 8,
+ "points": {
+  "1": {
+   "rel_err": 1.0,
+   "correct": false
+  }
+ },
+ "last_stage": "B=1 timing k=17"
+}

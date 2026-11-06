@@ -74,6 +74,29 @@ def make_layer(design, rank, world, n_attn, b, w, group, torch):
     attn = rank < n_attn
     n_ffn = world - n_attn
 
+    if design == "hetero_ordered":
+        # Separate programs per role, with exchange order forced by data
+        # dependencies: each program is scheduled on its own, so two
+        # collectives with no dependency between them can be issued in either
+        # order, and the roles then pair the wrong exchanges. Buffers that are
+        # all zeros are taken from the previous exchange's output, not built
+        # fresh, so every exchange depends on the one before it.
+        if attn:
+            def layer(h):
+                zero_rows = torch.zeros_like(h)
+                send = torch.cat([zero_rows if r < n_attn else h for r in range(world)])
+                recv = a2a(send, group)                 # zeros from everyone
+                back = a2a(recv, group)                 # combine; send = what we got
+                return back[n_attn * b:].reshape(n_ffn, b, H).sum(0) / n_ffn
+        else:
+            def layer(h):
+                # h is what this rank received in the previous combine (zeros),
+                # so this dispatch cannot run before that combine.
+                recv = a2a(h.repeat(world, 1), group)
+                back = a2a(recv @ w, group)
+                return back[:b]
+        return layer
+
     if design in ("hetero", "hetero_unused"):
         if attn:
             def layer(h):

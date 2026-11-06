@@ -1,0 +1,11 @@
+{
+ "rank": 6,
+ "role": "expert",
+ "design": "hetero",
+ "n_attn": 4,
+ "world": 8,
+ "points": {
+  "1": {}
+ },
+ "last_stage": "B=1 timing k=17"
+}

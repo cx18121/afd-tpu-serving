@@ -1,0 +1,74 @@
+[
+ {
+  "design": "hetero",
+  "split": "4:4",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 306,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
+   }
+  }
+ },
+ {
+  "design": "hetero_unused",
+  "split": "4:4",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
+   }
+  }
+ },
+ {
+  "design": "hetero",
+  "split": "2:6",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
+   }
+  }
+ },
+ {
+  "design": "hetero_unused",
+  "split": "2:6",
+  "status": "TIMEOUT (likely hang)",
+  "seconds": 305,
+  "last_stage": [
+   "B=1 timing k=17"
+  ],
+  "errors": [],
+  "points": {
+   "1": {
+    "per_layer_us_max": null,
+    "per_layer_us_attn": null,
+    "correct": false,
+    "rel_err_max": 1.0
+   }
+  }
+ }
+]

@@ -27,7 +27,7 @@ case "$STEP" in
       -e PYTHONUNBUFFERED=1 \
       --entrypoint python3 "$IMAGE" \
       /afd/transfer_test.py --launch --platform tpu --out /out \
-        --designs "${AFD_DESIGNS:-hetero,hetero_unused}" \
+        --designs "${AFD_DESIGNS:-homo,hetero_ordered}" \
         --splits 4,2 --tokens 1,8,32,128 --timeout 300 \
       2>&1 | tee "$W/logs/$STEP.log"
     ;;
