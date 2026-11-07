@@ -2,217 +2,148 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AFD for MoE serving on Cloud TPUs: midpoint</title>
+<title>AFD on TPU v6e: midpoint</title>
 <style>
   @page { size: 48in 36in; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 48in; height: 36in; }
   body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #1d1d1f; background: #fff; font-size: 0.36in; line-height: 1.3;
+    font-family: Arial, Helvetica, sans-serif; color: #1d1d1f;
+    font-size: 0.5in; line-height: 1.3; display: flex; flex-direction: column;
   }
   header {
-    height: 4in; padding: 0.4in 0.8in; background: #b31b1b; color: #fff;
-    display: flex; justify-content: space-between; align-items: center;
+    color: #1d1d1f; padding: 0.5in 0.8in 0.4in; text-align: center;
+    border-bottom: 0.06in solid #1f3a5f;
   }
-  header h1 { font-size: 1.0in; line-height: 1.1; margin: 0 0 0.15in; letter-spacing: -0.01in; }
-  header .sub { font-size: 0.44in; opacity: 0.95; }
-  header .right { text-align: right; font-size: 0.36in; line-height: 1.45; }
+  h1 { font-size: 1.2in; line-height: 1.05; margin: 0 0 0.18in; }
+  header .sub { font-size: 0.5in; margin-top: 0.18in; opacity: 0.92; }
+  header .who { font-size: 0.6in; line-height: 1.35; color: #1d1d1f; }
+  header .aff { font-size: 0.5in; color: #3c4043; }
   main {
-    display: grid; grid-template-columns: 0.95fr 1.1fr 1.05fr 1.1fr; gap: 0.45in;
-    padding: 0.45in 0.6in; height: calc(36in - 4in);
+    flex: 1; min-height: 0; display: grid; grid-template-columns: 12.4in 1fr 1fr;
+    column-gap: 0.8in; padding: 0.7in 0.8in 0.6in;
   }
-  section { display: flex; flex-direction: column; gap: 0.3in; min-height: 0; }
-  .box { background: #f6f6f8; border-radius: 0.18in; padding: 0.3in 0.38in; }
-  h2 {
-    font-size: 0.56in; margin: 0 0 0.12in; color: #b31b1b;
-    border-bottom: 0.05in solid #b31b1b; padding-bottom: 0.06in;
-  }
-  h3 { font-size: 0.4in; margin: 0.1in 0 0.06in; }
-  p { margin: 0 0 0.12in; }
-  ul { margin: 0 0 0.08in; padding-left: 0.4in; }
-  li { margin-bottom: 0.07in; }
-  img { width: 100%; display: block; }
-  .take {
-    background: #fff4e5; border-left: 0.09in solid #d9822b;
-    padding: 0.14in 0.24in; border-radius: 0.08in; font-weight: 600;
-  }
-  .good { background: #e8f5ec; border-left: 0.09in solid #2e8b57;
-    padding: 0.14in 0.24in; border-radius: 0.08in; font-weight: 600; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.31in; }
-  th, td { padding: 0.06in 0.1in; border-bottom: 0.01in solid #ccc; vertical-align: top; text-align: left; }
-  td.num, th.num { text-align: right; white-space: nowrap; }
-  th { background: #eee; }
-  .ok { color: #2e8b57; font-weight: 700; }
-  .no { color: #b31b1b; font-weight: 700; }
-  .small { font-size: 0.29in; color: #555; }
-  code { font-size: 0.9em; background: #eceef2; padding: 0 0.05in; border-radius: 0.04in; }
-  /* AFD layout diagram */
-  .diagram { display: flex; flex-direction: column; gap: 0.12in; font-size: 0.3in; }
-  .replica { border-radius: 0.12in; padding: 0.14in; }
-  .replica.attn { background: #e6eefa; border: 0.04in solid #1f5aa6; }
-  .replica.exp { background: #e8f5ec; border: 0.04in solid #2e8b57; }
-  .replica .title { font-weight: 700; margin-bottom: 0.08in; }
-  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.1in; }
-  .chip { background: #fff; border: 0.025in solid #999; border-radius: 0.08in; padding: 0.08in;
-    text-align: center; line-height: 1.2; }
-  .flow { text-align: center; font-weight: 700; color: #555; font-size: 0.3in; }
-  .timeline li { margin-bottom: 0.1in; }
-  .timeline b { color: #b31b1b; }
+  .col { display: flex; flex-direction: column; min-height: 0; }
+  section { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0.55in; }
+  section:last-child { margin-bottom: 0; }
+  section.grow { flex: 1; }
+  h2 { background: #1f3a5f; color: #fff; text-align: center; font-size: 0.64in; line-height: 1.15;
+       font-weight: 700; margin: 0 0 0.35in; padding: 0.14in 0.3in; border-radius: 0.14in; }
+  p { margin: 0 0 0.2in; }
+  ul { margin: 0 0 0.2in; padding-left: 0.45in; }
+  li { margin-bottom: 0.16in; }
+  b.r { color: #b31b1b; }
+  .muted { color: #5f6368; }
+  .cap { font-size: 0.4in; color: #5f6368; margin: 0.25in 0 0.25in; line-height: 1.3; }
+  code { font-family: Menlo, monospace; font-size: 0.85em; }
+  .fig { min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
+  .fig.flex { flex: 1; }
+  .fig img { width: 100%; height: 100%; object-fit: contain; object-position: top; }
+
+  table.t { border-collapse: collapse; width: 100%; font-size: 0.46in; }
+  table.t td { padding: 0.17in 0.1in; border-top: 0.015in solid #e3e3e3; vertical-align: baseline; }
+  table.t tr:first-child td { border-top: none; }
+  table.t td.mark { font-weight: 700; width: 0.6in; font-size: 0.54in; color: #9aa0a6; }
+  table.t td.res { color: #5f6368; text-align: right; white-space: nowrap; }
+  table.t tr.used td { font-weight: 700; color: #b31b1b; }
+  table.t th { text-align: left; font-weight: 400; color: #5f6368; font-size: 0.4in; padding: 0 0.1in 0.08in; }
+  table.t td.p { color: #5f6368; font-size: 0.42in; }
+
+  .cmp { display: grid; grid-template-columns: 2.6in 1fr; row-gap: 0.4in; column-gap: 0.3in;
+         align-items: center; margin: 0.2in 0 0.15in; }
+  .cmp .lab { font-weight: 700; font-size: 0.46in; line-height: 1.15; }
+  .row { display: flex; gap: 0.1in; align-items: stretch; }
+  .row .gap { width: 0.55in; display: flex; align-items: center; justify-content: center;
+              color: #5f6368; font-size: 0.5in; }
+  .c { flex: 1; border-radius: 0.03in; overflow: hidden; display: flex; flex-direction: column;
+       color: #1d1d1f; font-size: 0.42in; text-align: center; line-height: 1; }
+  .c div { flex: 1; padding: 0.24in 0; }
+  .A { background: #dbe6f4; border: 0.025in solid #2b5c9e; } .E { background: #dcefe3; border: 0.025in solid #2e8b57; }
+  .c .A + .E { border-top: none; }
+  .key { font-size: 0.38in; color: #5f6368; }
+  .key i { display: inline-block; width: 0.3in; height: 0.3in; border-radius: 0.05in;
+           vertical-align: -0.03in; margin-right: 0.1in; }
 </style>
 </head>
 <body>
 <header>
-  <div>
-    <h1>Splitting attention from experts for MoE serving on TPUs</h1>
-    <div class="sub">Attention&ndash;FFN Disaggregation (AFD) on Cloud TPU v6e &middot; midpoint: AFD runs correctly in vLLM; here is what it took and what it costs</div>
-  </div>
-  <div class="right">
-    Charlie Xue &middot; Akhil Chilaka &middot; Rohan Anne &middot; Jerry Ji<br>
-    CS 5470, Team 27 &middot; Advisor: Eric Ding<br>
-    Cornell University
-  </div>
+  <h1>Attention&ndash;FFN disaggregation on TPU v6e</h1>
+  <div class="who">Charlie Xue, Akhil Chilaka, Rohan Anne, Jerry Ji</div>
+  <div class="aff">Cornell University</div>
 </header>
 
 <main>
-<!-- Column 1: problem -->
-<section>
-  <div class="box">
-    <h2>The problem</h2>
-    <p>Each layer of a Mixture-of-Experts (MoE) model has <b>attention</b>, which reads every earlier token through a KV cache, and <b>expert FFNs</b>, where a router sends each token to a few of many experts.</p>
-    <p>They want different hardware: attention is limited by KV-cache memory traffic and grows with context; experts are efficient only when many tokens reach each expert at once. Serving both on the same chips ("colocated") ties their memory and parallelism together.</p>
-    <p><b>AFD</b> puts attention and experts on separate chips, so each side can be sized on its own and the expert chips can batch tokens from many requests. The price: activations cross between the chip groups twice in every layer.</p>
-  </div>
-  <div class="box">
-    <h2>Questions</h2>
+<div class="col">
+  <section>
+    <h2>Motivation</h2>
     <ul>
-      <li>Can AFD be built on TPUs with today's PyTorch serving stack, and how?</li>
-      <li>For the same model, workload and 8 chips, when does tuned AFD beat colocated serving on the throughput vs. per-user speed frontier?</li>
-      <li>Which settings matter most: attention:expert split, micro-batch overlap, batching, placement?</li>
+      <li>In Qwen3-30B-A3B, attention reads each user&rsquo;s KV cache, so its cost grows with the number of users, while the 128 experts are 58&nbsp;GB of weights that every user shares.</li>
+      <li>Colocated serving runs both on every chip, so they can&rsquo;t be scaled or batched separately.</li>
+      <li>AFD puts them on different chips, as MegaScale-Infer and Step-3 already do on GPUs.</li>
     </ul>
-  </div>
-  <div class="box">
-    <h2>Why 8 chips</h2>
-    <img src="fig_memory.svg" alt="Memory of Qwen3-30B-A3B">
-    <p class="take">Experts alone need 58 GB, nearly all of two 32 GB v6e chips, so 3+ chips once working memory is counted. A 4-chip host allows one workable AFD split (1 attention : 3 expert); 8 chips allow several, so both systems get the same 8 chips.</p>
-  </div>
-  <div class="box">
-    <h2>Setup</h2>
-    <ul>
-      <li><b>Model:</b> Qwen3-30B-A3B, bf16 (48 layers, 128 experts, 8 per token).</li>
-      <li><b>Hardware:</b> one TPU v6e host, 8 chips.</li>
-      <li><b>Software:</b> vLLM 0.32 + vllm-torchtpu (PyTorch on TPU via XLA).</li>
-      <li><b>Benchmark:</b> <code>vllm bench serve</code>, random prompts, 1024 in / 256 out, 1&ndash;128 concurrent requests, 200 requests per point.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- Column 2: how to build AFD on TPU -->
-<section>
-  <div class="box">
-    <h2>Building AFD on TPU: what works</h2>
-    <p>AFD needs attention chips and expert chips to exchange activations inside every compiled model step. We tested every way the stack offers, 4 attention + 4 expert chips, checked against a float32 reference:</p>
-    <table>
-      <tr><th>Approach</th><th>Result on TPU v6e</th></tr>
-      <tr><td>A separate compiled program per role (PyTorch)</td><td><span class="no">Fails.</span> Hangs; with forced ordering it runs but returns scrambled data.</td></tr>
-      <tr><td>One program with a runtime branch (<code>torch.cond</code>)</td><td><span class="no">Fails.</span> Not supported by the TPU compiler.</td></tr>
-      <tr><td>Send only real data (uneven all-to-all)</td><td><span class="no">Fails.</span> Requires equal block sizes on every chip.</td></tr>
-      <tr><td>Chip-to-chip sends outside the compiled step</td><td><span class="ok">Correct</span>, but 1.2&ndash;1.4 ms per layer: ~90&times; too slow.</td></tr>
-      <tr><td><b>One shared program, role passed in as data</b></td><td><span class="ok">Correct</span>, 15&ndash;90 &micro;s per layer.</td></tr>
-      <tr><td>JAX program with a per-chip branch</td><td><span class="ok">Correct</span>, and each chip skips the other role's work (stand-alone test).</td></tr>
-    </table>
-    <p class="take" style="margin-top:0.16in">On PyTorch/XLA for TPU, every chip must run the same compiled program; a chip's role has to be runtime data, not code. vllm-torchtpu's developers hit the same wall: rank-specific values compiled into the program desync the chips' collectives.</p>
-  </div>
-  <div class="box">
-    <h2>The exchange is affordable</h2>
-    <img src="fig_exchange.svg" alt="Exchange cost per layer">
-    <p class="take">Moving one layer's activations to the expert chips and back costs 15&ndash;20 &micro;s at up to 8 tokens per chip: about 15% of a whole colocated layer, rising to ~23% at 32&ndash;128 tokens. Communication alone does not rule AFD out on TPU.</p>
-  </div>
-  <div class="box">
-    <h2>Practical lessons</h2>
-    <ul>
-      <li><b>Capacity, not quota, was the bottleneck.</b> 0 of 335 TPU requests started in the course's three zones over 3 days ("stockout"); searching all 20 v6e zones found Spot capacity in Mumbai.</li>
-      <li><b>The compile cache can serve stale programs.</b> After moving from 16 to 32 experts per chip, vLLM reused a cached 16-expert executable and failed; each layout now gets its own cache.</li>
-      <li><b>Hands-off runs:</b> every VM serves, benchmarks, uploads and deletes itself, with a deadline timer as backstop.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- Column 3: AFD design + correctness -->
-<section>
-  <div class="box">
-    <h2>Our AFD design (v1)</h2>
-    <div class="diagram">
-      <div class="replica attn">
-        <div class="title">Attention chips 0&ndash;3 (one vLLM replica, TP=4): every request, all KV cache</div>
-        <div class="chips">
-          <div class="chip">attention<br>&frac14; heads</div><div class="chip">attention<br>&frac14; heads</div>
-          <div class="chip">attention<br>&frac14; heads</div><div class="chip">attention<br>&frac14; heads</div>
-        </div>
-      </div>
-      <div class="flow">&darr; tokens (all-gather) &nbsp;&nbsp;&nbsp;&nbsp; expert results (reduce-scatter, then sum over 4 chips) &uarr;</div>
-      <div class="replica exp">
-        <div class="title">Expert chips 4&ndash;7 (second replica, no requests)</div>
-        <div class="chips">
-          <div class="chip">experts<br>0&ndash;31</div><div class="chip">experts<br>32&ndash;63</div>
-          <div class="chip">experts<br>64&ndash;95</div><div class="chip">experts<br>96&ndash;127</div>
-        </div>
-      </div>
+    <div class="cmp">
+      <div class="lab">Colocated</div><div class="row"><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div></div>
+      <div class="lab">AFD</div><div class="row"><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="gap">&harr;</div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div></div>
     </div>
-    <h3>Built as a small vLLM plugin, no fork</h3>
-    <ul>
-      <li>Expert placement: chip <i>j</i> of each replica loads experts 32<i>j</i>&ndash;32<i>j</i>+31.</li>
-      <li>Role as data: on attention chips the "first local expert" is set to 128, so no token matches a local expert and they compute nothing in MoE layers.</li>
-      <li>All requests carry <code>X-data-parallel-rank: 0</code>, so only chips 0&ndash;3 serve them.</li>
-      <li>Dispatch/combine reuse vLLM's existing data-parallel collectives: the same ones colocated serving runs, so the plumbing is known-good.</li>
-    </ul>
-  </div>
-  <div class="box">
-    <h2>AFD output is correct</h2>
-    <ul>
-      <li>All 4 known-answer prompts pass (e.g. 17 &times; 23 = 391; counting to 30; a 3-sentence explanation).</li>
-      <li>Greedy text matches colocated serving until a near-tie, where bf16 rounding in a different summation order flips the pick. The baseline's token is always AFD's runner-up at nearly equal probability:</li>
-    </ul>
-    <table>
-      <tr><th>Prompt (diverging token)</th><th class="num">AFD pick</th><th class="num">Colocated pick</th></tr>
-      <tr><td>"In 1969, the Apollo 11 mission" (1st)</td><td class="num">marked 0.239</td><td class="num">achieved 0.239</td></tr>
-      <tr><td>"A mixture-of-experts model routes&hellip;" (11th)</td><td class="num">in 0.442</td><td class="num">for 0.442</td></tr>
-      <tr><td>"The three laws of thermodynamics are" (2nd)</td><td class="num">foundation 0.233</td><td class="num">most 0.206</td></tr>
+    <div class="key"><i class="A"></i>attention &nbsp;&nbsp; <i class="E"></i>experts per chip</div>
+  </section>
+  <section>
+    <h2>The obstacle on TPU</h2>
+    <p>torch_tpu compiles one program and runs it on every chip, so attention chips and expert chips can&rsquo;t run different code. We tried five ways around this:</p>
+    <table class="t">
+      <tr><td class="mark">&#x2717;</td><td>A separate program per group</td><td class="res">hangs</td></tr>
+      <tr><td class="mark">&#x2717;</td><td>A runtime branch (<code>torch.cond</code>)</td><td class="res">unsupported</td></tr>
+      <tr><td class="mark">&#x2717;</td><td>Uneven all-to-all</td><td class="res">won&rsquo;t compile</td></tr>
+      <tr><td class="mark">&#x2717;</td><td>Chip-to-chip send and receive</td><td class="res">1.3 ms per layer</td></tr>
+      <tr class="used"><td class="mark">&#x2713;</td><td>One program, role set by data</td><td class="res">15 to 90 &micro;s</td></tr>
     </table>
-    <p class="small" style="margin-top:0.1in">A missing or double-counted expert would push the baseline's token far down AFD's ranking instead.</p>
-  </div>
-</section>
+  </section>
+  <section class="grow">
+    <h2>Moving tokens is cheap</h2>
+    <p>We timed the working approach on its own and found that sending tokens to the expert chips and back (<b class="r">red</b>) takes 13 to 23% of the time of a whole colocated layer (<span class="muted">grey</span>).</p>
+    <div class="fig flex"><img data-fig="fig_exchange" src="fig_exchange.svg" alt="Exchange cost per layer vs a colocated layer"></div>
+  </section>
+</div>
 
-<!-- Column 4: results + plan -->
-<section>
-  <div class="box">
-    <h2>First AFD vs. colocated numbers</h2>
-    <img src="fig_pareto.svg" alt="Throughput per chip vs per-user speed">
-    <p class="take">Unoptimized AFD v1 is 19&ndash;44% below colocated serving (DP=2&times;TP=4 at the same load), and the gap grows with load. Why:</p>
+<div class="col">
+  <section class="grow">
+    <h2>Our design</h2>
+    <div class="fig flex"><img data-fig="fig_roles" src="fig_roles.svg" alt="One MoE layer: what each chip does"></div>
     <ul>
-      <li><b>Half the chips wait.</b> In each layer the expert chips wait for attention and the attention chips wait for the experts; colocated keeps all 8 busy. AFD systems overlap micro-batches to fix this.</li>
-      <li><b>Half the attention.</b> All requests go through 4 chips (time to first token at 128 requests: 2.0 s vs 1.0 s).</li>
-      <li><b>Wasted work in v1.</b> Expert chips also process their own replica's padding batches.</li>
+      <li>With data parallelism, vLLM runs two copies of the model on 4 chips each, and both copies execute the same compiled program in lockstep.</li>
+      <li>We send every request to the first copy and give its chips an empty expert range, which turns them into attention chips that skip the expert work.</li>
+      <li>The second copy gets no requests, so its chips act as expert chips, each holding 32 of the 128 experts.</li>
+      <li>In every layer, tokens travel to the expert chips and back through vLLM&rsquo;s existing all-gather and reduce-scatter, so we didn&rsquo;t need new communication code.</li>
+      <li>The grey cells show wasted work, since the expert chips run attention on padding batches and each group waits while the other works.</li>
     </ul>
-    <table>
-      <tr><th>Concurrent requests</th><th class="num">1</th><th class="num">16</th><th class="num">128</th></tr>
-      <tr><td>AFD v1: output tok/s</td><td class="num">116</td><td class="num">1,254</td><td class="num">3,016</td></tr>
-      <tr><td>Colocated DP=2&times;TP=4</td><td class="num">142</td><td class="num">1,729</td><td class="num">5,425</td></tr>
-      <tr><td>AFD v1: per-user tok/s</td><td class="num">118</td><td class="num">92</td><td class="num">34</td></tr>
-      <tr><td>Colocated DP=2&times;TP=4</td><td class="num">146</td><td class="num">127</td><td class="num">61</td></tr>
+  </section>
+  <section>
+    <h2>AFD gives correct output</h2>
+    <p>AFD gets all 4 of our known-answer prompts right, and where its text differs from colocated serving, the two candidate tokens had similar probabilities:</p>
+    <table class="t">
+      <tr><th>prompt</th><th>AFD&rsquo;s token</th><th>colocated&rsquo;s token</th></tr>
+      <tr><td class="p">Apollo 11</td><td><b>marked</b> .239</td><td><b>achieved</b> .239</td></tr>
+      <tr><td class="p">fibonacci(n)</td><td><b>1</b> .525</td><td><b>0</b> .463</td></tr>
     </table>
-    <p class="small">Colocated: mean of 3 runs (within 5% of each other except at 64 requests); AFD: 1 run.</p>
-  </div>
-  <div class="box">
-    <h2>Plan to Dec 7</h2>
-    <ul class="timeline">
-      <li><b>Nov 9&ndash;15:</b> remove v1's wasted work (padding tokens on expert chips, unused expert weights on attention chips); time breakdown per layer from our profile traces (CCL-Bench).</li>
-      <li><b>Nov 16&ndash;29:</b> micro-batch overlap ("ping-pong"): attention on one half-batch while experts run the other, the step that lets AFD use both chip groups at once.</li>
-      <li><b>Nov 30&ndash;Dec 6:</b> sweep attention:expert splits; GSM8K accuracy and fuller benchmark protocol; final frontier; CCL-Bench entry with traces and workload cards.</li>
+  </section>
+</div>
+
+<div class="col">
+  <section class="grow">
+    <h2>AFD works, but its throughput is 19 to 44% below <span style="white-space:nowrap">2&#8239;&times;&#8239;TP=4</span></h2>
+    <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
+    <p style="margin-top:0.3in">Since moving tokens is cheap, most of this gap probably comes from the idle time in the grey cells, which we plan to confirm by profiling a single layer.</p>
+  </section>
+  <section>
+    <h2>Next steps</h2>
+    <ul>
+      <li>Profile one layer to see where the time goes</li>
+      <li>Remove the padding work on the expert chips</li>
+      <li>Split each batch in two so both groups work at once</li>
+      <li>Compare accuracy on GSM8K and try other chip splits</li>
     </ul>
-    <p class="small"><b>Code, traces, run logs:</b> github.com/cx18121/afd-tpu-serving &middot; ~47 v6e chip-hours used so far.</p>
-  </div>
-</section>
+  </section>
+</div>
 </main>
 </body>
 </html>

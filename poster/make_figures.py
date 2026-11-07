@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Figures for the midpoint poster, from measured data only.
+"""Figures for the midpoint poster, from measured data in results/.
 
 usage: python3 poster/make_figures.py      (writes poster/fig_*.svg)
-Reads results/colocated/<layout>/colocated_c<N>_r<K>.json.
+
+Each figure is drawn at its printed size in inches, so font sizes below are
+real point sizes on the 48 x 36 in poster.
 """
 import json
 import re
@@ -14,21 +16,26 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.patches import FancyBboxPatch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "poster"
 RES = ROOT / "results"
 CHIPS = 8
+BLUE, ORANGE, GREEN, GREY, INK = "#2b5c9e", "#d98a2b", "#2e8b57", "#9aa0a6", "#1d1d1f"
 LAYOUTS = {
-    "tp8_ep": ("Colocated TP=8 + EP=8", "#1f5aa6", "o"),
-    "dp2_tp4_ep": ("Colocated DP=2 x TP=4 + EP=8", "#d9822b", "s"),
-    "afd_dp2": ("AFD v1: 4 attention + 4 expert chips", "#2e8b57", "^"),
+    "tp8_ep": ("Colocated, TP=8", BLUE, "o"),
+    "dp2_tp4_ep": ("Colocated, 2 replicas of TP=4", ORANGE, "s"),
+    "afd_dp2": ("AFD v1, 4 attention + 4 expert chips", GREEN, "^"),
 }
 
 plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 15, "axes.titlesize": 17,
-    "axes.labelsize": 16, "legend.fontsize": 13, "axes.spines.top": False,
-    "axes.spines.right": False, "svg.fonttype": "path",
+    "font.family": "Arial", "font.size": 30, "axes.labelsize": 32,
+    "xtick.labelsize": 28, "ytick.labelsize": 28, "legend.fontsize": 28,
+    "axes.spines.top": False, "axes.spines.right": False, "axes.linewidth": 2,
+    "xtick.major.width": 2, "ytick.major.width": 2, "xtick.major.size": 8,
+    "ytick.major.size": 8, "svg.fonttype": "path", "axes.edgecolor": INK,
+    "text.color": INK, "axes.labelcolor": INK, "xtick.color": INK, "ytick.color": INK,
 })
 
 
@@ -45,170 +52,140 @@ def mean(results, key):
     return statistics.mean(r[key] for r in results)
 
 
-def pareto(data):
-    fig, ax = plt.subplots(figsize=(8, 6))
-    frontier = []
-    for layout, (label, color, marker) in LAYOUTS.items():
-        if layout not in data:
-            continue
+def save(fig, name):
+    fig.savefig(OUT / f"{name}.svg")
+    (OUT / "preview").mkdir(exist_ok=True)
+    fig.savefig(OUT / "preview" / f"{name}.png", dpi=40)
+    plt.close(fig)
+
+
+RED, DARK, LIGHT = "#b31b1b", "#3c4043", "#b0b4b9"
+LIGHT_FILL = {BLUE: "#dbe6f4", GREEN: "#dcefe3", RED: "#f6dada"}
+
+
+def ylabel_top(ax, text):
+    """Horizontal y-axis label above the axis (easier to read than rotated)."""
+    ax.text(0, 1.03, text, transform=ax.transAxes, ha="left", va="bottom", fontsize=30)
+
+
+def throughput(data, size):
+    """Total output tokens/s vs concurrent requests, AFD vs both colocated layouts."""
+    fig, ax = plt.subplots(figsize=size)
+    series = [("tp8_ep", "Colocated, TP=8", LIGHT, "--"),
+              ("dp2_tp4_ep", "Colocated, 2 × TP=4", DARK, "-"),
+              ("afd_dp2", "AFD v1", RED, "-")]
+    ys = {}
+    for layout, label, color, ls in series:
         cs = sorted(data[layout])
-        x = [1000 / mean(data[layout][c], "mean_tpot_ms") for c in cs]
-        y = [mean(data[layout][c], "output_throughput") / CHIPS for c in cs]
-        ax.plot(x, y, marker=marker, color=color, lw=2.5, ms=10, label=label)
-        for c, xi, yi in zip(cs, x, y):
-            if layout == "afd_dp2" and c not in (1, 16, 128):
-                continue
-            if layout == "dp2_tp4_ep" and c not in (1, 16, 32, 128):
-                continue
-            dx, dy = {"tp8_ep": (8, 6), "dp2_tp4_ep": (8, -14), "afd_dp2": (-44, -16)}[layout]
-            if layout == "afd_dp2" and c == 1:
-                dx, dy = (6, 6)
-            ax.annotate(f"c={c}", (xi, yi), textcoords="offset points", xytext=(dx, dy),
-                        fontsize=12, color=color)
-            if layout != "afd_dp2":
-                frontier.append((xi, yi))
-        # Spread across repeats (only visible where runs disagree).
-        for c, xi in zip(cs, x):
-            outs = [r["output_throughput"] / CHIPS for r in data[layout][c]]
-            if max(outs) - min(outs) > 0.1 * statistics.mean(outs):
-                ax.vlines(xi, min(outs), max(outs), color=color, lw=6, alpha=0.3)
-    # Pareto frontier: best throughput at each per-user speed.
-    pts = sorted(frontier, key=lambda p: -p[0])
-    best, front = -1, []
-    for p in pts:
-        if p[1] > best:
-            front.append(p)
-            best = p[1]
-    ax.plot(*zip(*front), ls="--", color="#333", lw=1.5, label="Colocated frontier", zorder=0)
-    ax.set_xlim(25, 200)
-    ax.set_xlabel("Per-user decode speed (tokens/s per request)")
-    ax.set_ylabel("Output throughput per chip (tokens/s)")
-    ax.set_title("Throughput vs. per-user speed, 8 x TPU v6e")
-    ax.legend(loc="upper right", frameon=False, fontsize=12)
-    ax.grid(alpha=0.25)
+        ys[layout] = {c: mean(data[layout][c], "output_throughput") for c in cs}
+        ax.plot(cs, [ys[layout][c] for c in cs], ls=ls, color=color, lw=6, marker="o",
+                ms=16, zorder=3 if layout == "afd_dp2" else 2)
+        dy = {"tp8_ep": -170, "dp2_tp4_ep": 120}.get(layout, 0)
+        ax.text(cs[-1] * 1.12, ys[layout][cs[-1]] + dy, label, va="center", fontsize=30,
+                color=color, fontweight="bold")
+    base, afd = ys["dp2_tp4_ep"], ys["afd_dp2"]
+    cs = sorted(afd)
+    ax.fill_between(cs, [afd[c] for c in cs], [base[c] for c in cs], color=RED, alpha=0.08,
+                    lw=0, zorder=1)
+    gaps = {c: afd[c] / base[c] - 1 for c in afd}
+    for c, g in gaps.items():
+        ax.text(c * 1.15, afd[c] - 120, f"{g:.0%}".replace("-", "−"),
+                ha="left", va="top",
+                fontsize=28, color=RED)
+    print("throughput gap vs 2xTP4:", {c: f"{g:.0%}" for c, g in gaps.items()})
+    ax.set_xscale("log", base=2)
+    cs = sorted(afd)
+    ax.set_xticks(cs, [str(c) for c in cs])
+    ax.minorticks_off()
+    ax.set_xlim(0.85, 128 * 5.2)
+    ax.set_ylim(-280, 5700)
+    ax.set_yticks(range(0, 5001, 1000), [f"{v:,}" for v in range(0, 5001, 1000)])
+    ax.spines["bottom"].set_bounds(1, 128)
+    ax.set_xlabel("Concurrent requests")
+    ylabel_top(ax, "Output tokens/s, 8 chips")
     fig.tight_layout()
-    fig.savefig(OUT / "fig_pareto.svg")
-    fig.savefig(OUT / "preview" / "fig_pareto.png", dpi=70)
+    save(fig, "fig_throughput")
 
 
-def latency(data):
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.8))
-    panels = [("mean_ttft_ms", "Mean time to first token (ms)"),
-              ("mean_tpot_ms", "Mean time per token (ms)"),
-              ("p99_itl_ms", "p99 inter-token gap (ms)")]
-    for ax, (key, title) in zip(axes, panels):
-        for layout, (label, color, marker) in LAYOUTS.items():
-            cs = sorted(data[layout])
-            ax.plot(cs, [mean(data[layout][c], key) for c in cs], marker=marker,
-                    color=color, lw=2.5, ms=9, label=label)
-        ax.set_xscale("log", base=2)
-        ax.set_xticks([1, 4, 8, 16, 32, 64, 128], ["1", "4", "8", "16", "32", "64", "128"])
-        ax.set_xlabel("Concurrent requests")
-        ax.set_title(title)
-        ax.grid(alpha=0.25)
-    axes[0].legend(frameon=False, loc="upper left", fontsize=11)
-    fig.tight_layout()
-    fig.savefig(OUT / "fig_latency.svg")
-    fig.savefig(OUT / "preview" / "fig_latency.png", dpi=70)
-
-
-def memory():
-    # Parameter counts from the Qwen3-30B-A3B config (48 layers, hidden 2048,
-    # 32 q / 4 kv heads x 128, 128 experts x 768, vocab 151936, untied).
-    gb = 2 / 1e9  # bf16 bytes per parameter, in GB
-    experts = 48 * 128 * 3 * 2048 * 768 * gb
-    attention = 48 * (2048 * 4096 + 2 * 2048 * 512 + 4096 * 2048) * gb
-    embed = 2 * 151936 * 2048 * gb
-    kv_per_token = 48 * 4 * 128 * 2 * 2  # bytes, bf16 K and V
-    kv_c128 = 128 * 1280 * kv_per_token / 1e9
-    fig, ax = plt.subplots(figsize=(8, 4.8))
-    items = [("Expert FFN weights\n(128 experts x 48 layers)", experts, "#d9822b"),
-             ("Attention weights", attention, "#1f5aa6"),
-             ("Embeddings + LM head", embed, "#7a9cc6"),
-             ("KV cache, 128 requests x\n1280 tokens (bf16)", kv_c128, "#5aa66b")]
-    for i, (name, val, color) in enumerate(items):
-        ax.barh(i, val, color=color)
-        ax.text(val + 0.8, i, f"{val:.1f} GB", va="center", fontsize=14)
-    for k in (1, 2):
-        ax.axvline(32 * k, color="#999", ls=":", lw=1.5)
-        ax.text(32 * k + 0.5, -0.55, f"{k} chip{'s' if k > 1 else ''} ({32 * k} GB)",
-                ha="left", va="bottom", fontsize=12, color="#555")
-    ax.set_yticks(range(len(items)), [i[0] for i in items])
-    ax.set_xlabel("Memory (GB)")
-    ax.set_xlim(0, 75)
-    ax.set_ylim(len(items) - 0.5, -0.9)
-    ax.set_title("Qwen3-30B-A3B memory, bf16")
-    fig.tight_layout()
-    fig.savefig(OUT / "fig_memory.svg")
-    fig.savefig(OUT / "preview" / "fig_memory.png", dpi=70)
-
-
-def capacity():
-    # Counted from our request logs, 2026-11-02 to 11-05 (Spot attempts plus
-    # flex-start requests, each flex request waiting up to 2 h).
-    zones = ["us-east5-a", "us-east5-b", "us-central1-a",
-             "12 other zones\n(US, EU, Asia)", "asia-south1-b/c"]
-    attempts = [116, 106, 113, 14, 5]
-    started = [0, 0, 0, 1, 4]  # the other-zone VM was reclaimed within seconds
-    fig, ax = plt.subplots(figsize=(8, 4.2))
-    zones = [z.replace("\n", " ") for z in zones]
-    ax.barh(zones, attempts, color="#c9c9c9", label="Requests (Spot + flex-start)")
-    ax.barh(zones, started, color="#2e8b57", label="VM actually started")
-    for i, (a, st) in enumerate(zip(attempts, started)):
-        ax.text(a + 2, i, f"{st} of {a} started", va="center", fontsize=13)
-    ax.invert_yaxis()
-    ax.set_xlim(0, 160)
-    ax.set_xlabel("Requests, Nov 2-5")
-    ax.set_title("TPU requests vs. VMs that started")
-    ax.legend(frameon=False, loc="lower right", fontsize=12)
-    fig.tight_layout()
-    fig.savefig(OUT / "fig_capacity.svg")
-    fig.savefig(OUT / "preview" / "fig_capacity.png", dpi=70)
-
-
-def exchange():
-    """Per-layer AFD dispatch+combine cost on TPU (afd/transfer_test.py,
-    single-program design), median and range over runs."""
-    runs = ["afd_xfer", "afd_xfer_run4", "afd_xfer_run6"]
+def exchange(data, size):
+    """Per-layer dispatch+combine cost between chip groups (afd/transfer_test.py,
+    single shared program), median over 3 runs, vs a whole colocated layer."""
     pts = defaultdict(list)
-    for r in runs:
+    for r in ("afd_xfer", "afd_xfer_run4", "afd_xfer_run6"):
         for row in json.loads((RES / r / "summary.json").read_text()):
             if row["design"] == "homo" and row["status"] == "ok":
                 for b, p in row["points"].items():
                     pts[(row["split"], int(b))].append(p["per_layer_us_attn"])
-    fig, ax = plt.subplots(figsize=(8, 4.8))
-    for split, color, marker in (("4:4", "#2e8b57", "^"), ("2:6", "#7a5195", "D")):
-        bs = sorted(b for s, b in pts if s == split)
-        med = [statistics.median(pts[(split, b)]) for b in bs]
-        lo = [m - min(pts[(split, b)]) for m, b in zip(med, bs)]
-        hi = [max(pts[(split, b)]) - m for m, b in zip(med, bs)]
-        ax.errorbar(bs, med, yerr=[lo, hi], marker=marker, color=color, lw=2.5, ms=9,
-                    capsize=5, label=f"split {split} (attention : expert chips)")
-    # Reference: a whole colocated TP=8 layer at the same batch (every chip
-    # holds all tokens there), from serving: mean TPOT / 48 layers.
-    d = load()["tp8_ep"]
-    cs = [1, 8, 32, 128]
-    ax.plot(cs, [mean(d[c], "mean_tpot_ms") * 1000 / 48 for c in cs], color="#1f5aa6",
-            ls="--", marker="o", lw=1.8, ms=6, label="whole colocated layer (TP=8), same batch")
-    ax.set_xscale("log", base=2)
-    ax.set_xticks([1, 8, 32, 128], ["1", "8", "32", "128"])
-    ax.set_xlabel("Tokens per attention chip")
-    ax.set_ylabel("Microseconds per layer")
-    ax.set_ylim(0, 400)
-    ax.set_title("Moving activations between chip groups, per layer")
-    ax.legend(frameon=False, loc="upper left", fontsize=12)
-    ax.grid(alpha=0.25)
+    fig, ax = plt.subplots(figsize=size)
+    bs = [1, 8, 32, 128]
+    layer = [mean(data["tp8_ep"][c], "mean_tpot_ms") * 1000 / 48 for c in bs]
+    xfer = [statistics.median(pts[("4:4", b)]) for b in bs]
+    ax.bar([i - 0.2 for i in range(4)], layer, width=0.4, color="#d5d8dc")
+    ax.set_xlim(-0.6, 3.95)
+    ax.bar([i + 0.2 for i in range(4)], xfer, width=0.4, color=RED)
+    for i, (lv, xv) in enumerate(zip(layer, xfer)):
+        ax.text(i + 0.42, xv / 2, f"{xv / lv:.0%}", ha="left", va="center", fontsize=30,
+                color=RED, fontweight="bold")
+        ax.text(i - 0.2, lv + 8, f"{lv:.0f}", ha="center", fontsize=26, color=DARK)
+    print("exchange share of layer:", [f"{x / l:.0%}" for x, l in zip(xfer, layer)])
+    ax.set_xticks(range(4), [str(b) for b in bs])
+    ax.set_xlabel("Tokens per chip")
+    ylabel_top(ax, "µs per layer")
+    ax.set_ylim(0, 410)
     fig.tight_layout()
-    fig.savefig(OUT / "fig_exchange.svg")
-    fig.savefig(OUT / "preview" / "fig_exchange.png", dpi=70)
+    save(fig, "fig_exchange")
+
+
+def roles(size):
+    """One MoE layer of the shared program (afd/plugin): what each chip does.
+    From the plugin docstring: tokens are all-gathered across the two replicas,
+    experts run, and a reduce-scatter returns each token's partial sums."""
+    fig, ax = plt.subplots(figsize=size)
+    idle = "#e8eaed"
+    rows = [  # label, cells (color, text) per chip or one spanning cell
+        ("Attention", [(BLUE, "attn")] * 4 + [(idle, "pad")] * 4),
+        ("Send tokens", [(RED, "all-gather: every token to every chip")]),
+        ("Experts", [(idle, "none")] * 4 + [(GREEN, f"{32 * j}–{32 * j + 31}") for j in range(4)]),
+        ("Return sums", [(RED, "reduce-scatter: results back to attention chips")]),
+    ]
+    w, gap = 1.0, 0.12
+    xs = [i * (w + gap) + (0.35 if i >= 4 else 0) for i in range(8)]
+    right = xs[-1] + w
+    for r, (label, cells) in enumerate(rows):
+        y = -r * 1.25
+        ax.text(-0.2, y, label, ha="right", va="center", fontsize=32, fontweight="bold")
+        if len(cells) == 1:
+            color, text = cells[0]
+            ax.add_patch(FancyBboxPatch((0, y - 0.32), right, 0.64,
+                         boxstyle="round,pad=0,rounding_size=0.03", fc=LIGHT_FILL[color],
+                         ec=color, lw=2.5))
+            ax.text(right / 2, y, text, ha="center", va="center", color=INK, fontsize=32)
+            continue
+        for x, (color, text) in zip(xs, cells):
+            ax.add_patch(FancyBboxPatch((x, y - 0.45), w, 0.9,
+                         boxstyle="round,pad=0,rounding_size=0.03", fc=LIGHT_FILL.get(color, color),
+                         ec="#bdc1c6" if color == idle else color, lw=2.5,
+                         ls="--" if color == idle else "-"))
+            ax.text(x + w / 2, y, text, ha="center", va="center", fontsize=24 if "–" in text else 28,
+                    color="#80868b" if color == idle else INK)
+    ax.text((xs[0] + xs[3] + w) / 2, 0.85, "4 attention chips", ha="center", fontsize=32, color=BLUE,
+            fontweight="bold")
+    ax.text((xs[4] + xs[7] + w) / 2, 0.85, "4 expert chips", ha="center", fontsize=32, color=GREEN,
+            fontweight="bold")
+    ax.set_xlim(-3.2, right + 0.05)
+    ax.set_ylim(-4.35, 1.35)
+    ax.axis("off")
+    fig.tight_layout(pad=0.2)
+    save(fig, "fig_roles")
 
 
 if __name__ == "__main__":
-    (OUT / "preview").mkdir(exist_ok=True)
+    # Slot sizes measured from the laid-out poster by build.py.
+    sizes_file = OUT / "fig_sizes.json"
+    sizes = json.loads(sizes_file.read_text()) if sizes_file.exists() else {}
+    size = lambda name, default: tuple(sizes.get(name, default))  # noqa: E731
     d = load()
-    pareto(d)
-    latency(d)
-    memory()
-    capacity()
-    exchange()
+    throughput(d, size("fig_throughput", (19.0, 16.0)))
+    exchange(d, size("fig_exchange", (12.5, 8.6)))
+    roles(size("fig_roles", (14.0, 7.0)))
     print("wrote", sorted(p.name for p in OUT.glob("fig_*.svg")))
