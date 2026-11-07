@@ -19,7 +19,7 @@
   header .sub { font-size: 0.5in; margin-top: 0.18in; opacity: 0.92; }
   header .who { font-size: 0.6in; line-height: 1.35; color: #1d1d1f; }
   main {
-    flex: 1; min-height: 0; display: grid; grid-template-columns: 12.4in 1fr 1fr;
+    flex: 1; min-height: 0; display: grid; grid-template-columns: 13.6in 1fr 1fr;
     column-gap: 0.8in; padding: 0.7in 0.8in 0.6in;
   }
   .col { display: flex; flex-direction: column; min-height: 0; }
@@ -51,7 +51,7 @@
               color: #5f6368; font-size: 0.5in; }
   .c { flex: 1; border-radius: 0.03in; overflow: hidden; display: flex; flex-direction: column;
        color: #1d1d1f; font-size: 0.42in; text-align: center; line-height: 1; }
-  .c div { flex: 1; padding: 0.24in 0; }
+  .c div { flex: 1; padding: 0.18in 0; }
   .A { background: #dbe6f4; border: 0.025in solid #2b5c9e; } .E { background: #dcefe3; border: 0.025in solid #2e8b57; }
   .c .A + .E { border-top: none; }
   .key { font-size: 0.38in; color: #5f6368; }
@@ -82,19 +82,18 @@
   </section>
   <section>
     <h2>The obstacle on TPU</h2>
-    <p>torch_tpu compiles one program and runs it on every chip, so attention chips and expert chips can&rsquo;t run different code. We tried five ways around this:</p>
-    <table class="t">
-      <tr><th>Approach</th><th>Result</th></tr>
-      <tr><td>A separate program per group</td><td>hangs</td></tr>
-      <tr><td>A runtime branch (<code>torch.cond</code>)</td><td>not supported</td></tr>
-      <tr><td>Uneven all-to-all</td><td>doesn&rsquo;t compile</td></tr>
-      <tr><td>Chip-to-chip send and receive</td><td>1.3 ms per layer</td></tr>
-      <tr class="used"><td>One program, role set by data</td><td>15 to 90 &micro;s per layer</td></tr>
-    </table>
+    <p>torch_tpu compiles one program and runs it on every chip, so attention chips and expert chips can&rsquo;t run different code. Our first attempts failed:</p>
+    <ul>
+      <li>Giving each group its own program made their shared communication step hang.</li>
+      <li>torch_tpu doesn&rsquo;t support a runtime branch (<code>torch.cond</code>).</li>
+      <li>An all-to-all that sends different amounts to each chip doesn&rsquo;t compile.</li>
+      <li>Sending tokens chip to chip outside the compiled step works, but is about 90 times slower.</li>
+    </ul>
+    <p>What worked was running the same program on every chip and passing each chip&rsquo;s role in as data.</p>
   </section>
   <section class="grow">
     <h2>Moving tokens is cheap</h2>
-    <p>We timed the working approach on its own and found that sending tokens to the expert chips and back (<b class="r">red</b>) takes 13 to 23% of the time of a whole colocated layer (<span class="muted">grey</span>).</p>
+    <p>Timed on its own, sending tokens to the expert chips and back (<b class="r">red</b>) takes 13 to 23% of the time of a colocated layer (<span class="muted">grey</span>).</p>
     <div class="fig flex"><img data-fig="fig_exchange" src="fig_exchange.svg" alt="Exchange cost per layer vs a colocated layer"></div>
   </section>
 </div>
@@ -131,10 +130,10 @@
   <section>
     <h2>Next steps</h2>
     <ul>
-      <li>Profile one layer to see where the time goes</li>
-      <li>Remove the padding work on the expert chips</li>
-      <li>Split each batch in two so both groups work at once</li>
-      <li>Compare accuracy on GSM8K and try other chip splits</li>
+      <li>Profile a layer to measure how long each group sits idle</li>
+      <li>Stop the expert chips from running attention on padding</li>
+      <li>Split each batch in two so both groups can work at the same time</li>
+      <li>Measure GSM8K accuracy and try other ways to divide the 8 chips</li>
     </ul>
   </section>
 </div>
