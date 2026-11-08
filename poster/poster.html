@@ -209,7 +209,9 @@
                 vertical-align: -0.03in;
                 margin-right: 0.1in;
             }
-        </style>
+          .col > section.bottom { flex: none; height: var(--bottom-h); margin-top: auto; margin-bottom: 0; }
+  :root { --bottom-h: 8.26in; }
+</style>
     </head>
     <body>
         <header>
@@ -332,7 +334,7 @@
                         passing each chip&rsquo;s role in as data.
                     </p>
                 </section>
-                <section class="grow">
+                <section class="bottom">
                     <h2>Cost of the token exchange</h2>
                     <p>
                         In every layer, AFD sends each token from the attention
@@ -397,7 +399,7 @@
                         </li>
                     </ul>
                 </section>
-                <section>
+                <section class="bottom">
                     <h2>Checking correctness</h2>
                     <p>
                         AFD answers all 4 of our test prompts correctly, such as
@@ -457,7 +459,7 @@
                         of 8.
                     </p>
                 </section>
-                <section>
+                <section class="bottom">
                     <h2>Next steps</h2>
                     <ul>
                         <li>
