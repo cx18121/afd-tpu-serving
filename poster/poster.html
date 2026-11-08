@@ -135,7 +135,7 @@
       <li>Profile one layer of AFD and of colocated serving to see which of those costs is largest, and fix that one first.</li>
       <li>Split each batch in half so attention works on one half while the experts work on the other, which is how GPU AFD systems hide the waiting.</li>
       <li>Remove the padding work, and the unused expert weights on attention chips, which also frees memory for more requests.</li>
-      <li>Run GSM8K on both setups to check accuracy more broadly than our spot checks.</li>
+      <li>Rerun the throughput sweep after each fix to see whether AFD reaches the colocated Pareto frontier of throughput versus per-user speed.</li>
     </ul>
   </section>
 </div>
