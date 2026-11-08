@@ -136,7 +136,6 @@
       <li>Split each batch in half so attention works on one half while the experts work on the other, as MegaScale-Infer does on GPUs.</li>
       <li>Remove the padding work on the expert chips and the unused expert weights on the attention chips, freeing memory for more requests.</li>
       <li>Test giving attention more chips than the experts, since attention limits AFD at high load.</li>
-      <li>Rerun the throughput sweep after each change to see whether AFD reaches the colocated Pareto frontier of throughput versus per-user speed.</li>
     </ul>
   </section>
 </div>
