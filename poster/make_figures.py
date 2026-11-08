@@ -71,8 +71,8 @@ def ylabel_top(ax, text):
 def throughput(data, size):
     """Total output tokens/s vs concurrent requests, AFD vs both colocated layouts."""
     fig, ax = plt.subplots(figsize=size)
-    series = [("tp8_ep", "Colocated, 1 copy on 8 chips", LIGHT, "--"),
-              ("dp2_tp4_ep", "Colocated, 2 copies on 4 chips", DARK, "-"),
+    series = [("tp8_ep", "Colocated, TP=8", LIGHT, "--"),
+              ("dp2_tp4_ep", "Colocated, DP=2 × TP=4", DARK, "-"),
               ("afd_dp2", "AFD v1", RED, "-")]
     ys = {}
     for layout, label, color, ls in series:

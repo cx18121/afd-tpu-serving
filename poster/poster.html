@@ -62,7 +62,7 @@
 </head>
 <body>
 <header>
-  <h1>Separating attention and experts for MoE serving on TPUs</h1>
+  <h1>Improving the LLM serving Pareto frontier with AFD on TPUs</h1>
   <div class="who">Charlie Xue, Akhil Chilaka, Rohan Anne, Jerry Ji</div>
 </header>
 
@@ -106,7 +106,7 @@
     <div class="fig flex"><img data-fig="fig_roles" src="fig_roles.svg" alt="One MoE layer: what each chip does"></div>
     <ul>
       <li>We serve Qwen3-30B-A3B, an MoE model with 128 experts and 58&nbsp;GB of expert weights, on 8 TPU v6e chips with vLLM.</li>
-      <li>vLLM runs two copies of the model on 4 chips each, and both copies execute the same compiled program in lockstep.</li>
+      <li>vLLM runs two copies of the model on 4 chips each (DP=2&thinsp;&times;&thinsp;TP=4), and both copies execute the same compiled program in lockstep.</li>
       <li>We send every request to the first copy and give its chips an empty expert range, which turns them into attention chips that skip the expert work.</li>
       <li>The second copy gets no requests, so its chips act as expert chips, each holding 32 of the 128 experts.</li>
       <li>The grey cells show wasted work, since the expert chips run attention on padding batches and each group waits while the other works.</li>
@@ -127,7 +127,7 @@
   <section class="grow">
     <h2>AFD&rsquo;s throughput is 19 to 44% below colocated</h2>
     <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
-    <p style="margin-top:0.25in">Percentages compare against the two-copy layout that AFD is built from, and most of the gap likely comes from the grey cells in our design.</p>
+    <p style="margin-top:0.25in">Percentages compare against DP=2&thinsp;&times;&thinsp;TP=4, the layout AFD is built from, and most of the gap likely comes from the grey cells in our design.</p>
   </section>
   <section>
     <h2>Next steps</h2>
