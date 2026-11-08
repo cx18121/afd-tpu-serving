@@ -125,16 +125,14 @@ def exchange(data, size):
     h = 0.62
     ax.barh(ys, layer, height=h, color="#d5d8dc")
     ax.barh(ys, xfer, height=h, color=RED)
-    for i, (y, lv, xv) in enumerate(zip(ys, layer, xfer)):
-        first = i == len(bs) - 1
-        ax.text(xv + 5, y, f"{xv:.0f} µs{' exchange' if first else ''} ({xv / lv:.0%})",
-                va="center", fontsize=27, color=RED, fontweight="bold")
-        ax.text(lv + 6, y, f"{lv:.0f} µs{' whole layer' if first else ''}", va="center",
-                fontsize=27, color=DARK)
+    for y, lv, xv in zip(ys, layer, xfer):
+        ax.text(385, y, f"{xv:.0f} of {lv:.0f} µs", va="center", fontsize=26, color=DARK)
+        ax.text(560, y, f"{xv / lv:.0%}", va="center", ha="right", fontsize=28, color=RED,
+                fontweight="bold")
     print("exchange share of layer:", [f"{x / l:.0%}" for x, l in zip(xfer, layer)])
     ax.set_yticks(ys, [f"{b} token" + ("s" if b > 1 else "") for b in bs])
     ax.tick_params(axis="y", length=0, pad=14)
-    ax.set_xlim(0, 480)
+    ax.set_xlim(0, 565)
     ax.set_ylim(-0.5, ys[0] + 0.5)
     ax.set_xticks([])
     for side in ("left", "bottom"):
@@ -153,21 +151,22 @@ def roles(size):
         ("Attention", [(BLUE, "attn")] * 4 + [(idle, "pad")] * 4),
         ("Send tokens", [(RED, "each token is copied to all 4 expert chips|all-gather")]),
         ("Experts", [(idle, "none")] * 4 + [(GREEN, f"{32 * j}–{32 * j + 31}") for j in range(4)]),
-        ("Return results", [(RED, "each token’s expert outputs are added up on the attention chips|reduce-scatter")]),
+        ("Return results", [(RED, "each token’s expert outputs are added up\non the attention chips|reduce-scatter")]),
     ]
     w, gap = 1.0, 0.12
     xs = [i * (w + gap) + (0.35 if i >= 4 else 0) for i in range(8)]
     right = xs[-1] + w
     for r, (label, cells) in enumerate(rows):
         y = -r * 1.25
-        ax.text(-0.2, y, label, ha="right", va="center", fontsize=32, fontweight="bold")
+        ax.text(-0.2, y, label, ha="right", va="center", fontsize=29, fontweight="bold")
         if len(cells) == 1:
             color, text = cells[0]
             ax.add_patch(FancyBboxPatch((0, y - 0.42), right, 0.84,
                          boxstyle="round,pad=0,rounding_size=0.03", fc=LIGHT_FILL[color],
                          ec=color, lw=2.5))
             main, op = text.split("|")
-            ax.text(right / 2, y + 0.13, main, ha="center", va="center", color=INK, fontsize=22)
+            ax.text(right / 2, y + 0.1, main, ha="center", va="center", color=INK, fontsize=24,
+                    linespacing=1.35)
             ax.text(right / 2, y - 0.22, op, ha="center", va="center", color=RED, fontsize=20)
             continue
         for x, (color, text) in zip(xs, cells):
@@ -175,13 +174,13 @@ def roles(size):
                          boxstyle="round,pad=0,rounding_size=0.03", fc=LIGHT_FILL.get(color, color),
                          ec="#bdc1c6" if color == idle else color, lw=2.5,
                          ls="--" if color == idle else "-"))
-            ax.text(x + w / 2, y, text, ha="center", va="center", fontsize=24 if "–" in text else 28,
+            ax.text(x + w / 2, y, text, ha="center", va="center", fontsize=20 if "–" in text else 24,
                     color="#80868b" if color == idle else INK)
-    ax.text((xs[0] + xs[3] + w) / 2, 0.85, "4 attention chips", ha="center", fontsize=32, color=BLUE,
+    ax.text((xs[0] + xs[3] + w) / 2, 0.85, "4 attention chips", ha="center", fontsize=29, color=BLUE,
             fontweight="bold")
-    ax.text((xs[4] + xs[7] + w) / 2, 0.85, "4 expert chips", ha="center", fontsize=32, color=GREEN,
+    ax.text((xs[4] + xs[7] + w) / 2, 0.85, "4 expert chips", ha="center", fontsize=29, color=GREEN,
             fontweight="bold")
-    ax.set_xlim(-3.2, right + 0.05)
+    ax.set_xlim(-3.0, right + 0.05)
     ax.set_ylim(-4.35, 1.35)
     ax.axis("off")
     fig.tight_layout(pad=0.2)

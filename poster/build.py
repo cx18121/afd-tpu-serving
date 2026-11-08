@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render poster/poster.html to poster/poster.pdf (48 x 36 in, landscape).
+"""Render poster/poster.html to poster/poster.pdf (42 x 40 in).
 
 usage: python3 poster/build.py
 Measures each figure slot (<img data-fig=...>) in the laid-out page, redraws
@@ -17,7 +17,7 @@ HERE = Path(__file__).resolve().parent
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    page = browser.new_page(viewport={"width": 48 * 96, "height": 36 * 96})
+    page = browser.new_page(viewport={"width": 42 * 96, "height": 40 * 96})
     page.goto((HERE / "poster.html").as_uri())
     page.wait_for_load_state("networkidle")
     sizes = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll('img[data-fig]')]
@@ -30,7 +30,7 @@ with sync_playwright() as p:
     overflow = page.evaluate("""() => [...document.querySelectorAll('main > *')]
         .map((s, i) => ({col: i + 1, over: s.scrollHeight - s.clientHeight}))
         .filter(x => x.over > 1)""")
-    page.pdf(path=str(HERE / "poster.pdf"), width="48in", height="36in",
+    page.pdf(path=str(HERE / "poster.pdf"), width="42in", height="40in",
              print_background=True, prefer_css_page_size=True)
     browser.close()
 
