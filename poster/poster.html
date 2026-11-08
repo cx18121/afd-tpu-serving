@@ -127,7 +127,7 @@
   <section class="grow">
     <h2>AFD&rsquo;s throughput is 19 to 44% below colocated</h2>
     <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
-    <p style="margin-top:0.25in">Colocated serving can run one copy of the model on all 8 chips or two copies on 4 chips each. AFD is built from the second layout, so the percentages compare against it. The gap most likely comes from the grey cells in our design, where attention runs on only 4 chips, the expert chips spend time on padding, and each group waits for the other.</p>
+    <p style="margin-top:0.25in">Percentages compare against the two-copy layout that AFD is built from, and most of the gap likely comes from the grey cells in our design.</p>
   </section>
   <section>
     <h2>Next steps</h2>
