@@ -132,7 +132,7 @@
   <section>
     <h2>Next steps</h2>
     <ul>
-      <li>Profile one layer of AFD and of colocated serving to see which of those costs is largest, and fix that one first.</li>
+      <li>Profile one layer of AFD and of colocated serving to measure what each grey cell costs, and fix the largest first.</li>
       <li>Split each batch in half so attention works on one half while the experts work on the other, which is how GPU AFD systems hide the waiting.</li>
       <li>Remove the padding work, and the unused expert weights on attention chips, which also frees memory for more requests.</li>
       <li>Test giving attention more chips than the experts, since attention limits AFD at high load.</li>
