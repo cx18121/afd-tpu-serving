@@ -127,7 +127,7 @@
   <section class="grow">
     <h2>Throughput is 19 to 44% below colocated</h2>
     <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
-    <p style="margin-top:0.25in">Against DP=2&thinsp;&times;&thinsp;TP=4, the layout AFD is built from, the gap grows from 19% at 1 request to 44% at 128, and time to first token doubles at 128 requests (2.0&nbsp;s vs 1.0&nbsp;s). This points to attention as the bottleneck, since AFD runs all of it on 4 chips instead of 8.</p>
+    <p style="margin-top:0.25in">Against DP=2&thinsp;&times;&thinsp;TP=4, the gap grows from 19% at 1 request to 44% at 128, and time to first token doubles at 128 requests (2.0&nbsp;s vs 1.0&nbsp;s). This points to attention as the bottleneck, since AFD runs all of it on 4 chips instead of 8.</p>
   </section>
   <section>
     <h2>Next steps</h2>
