@@ -1,144 +1,487 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>AFD on TPU v6e: midpoint</title>
-<style>
-  @page { size: 48in 36in; margin: 0; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; width: 48in; height: 36in; }
-  body {
-    font-family: Arial, Helvetica, sans-serif; color: #1d1d1f;
-    font-size: 0.47in; line-height: 1.3; display: flex; flex-direction: column;
-  }
-  header {
-    color: #1d1d1f; padding: 0.5in 0.8in 0.4in; text-align: center;
+    <head>
+        <meta charset="utf-8" />
+        <title>AFD on TPU v6e: midpoint</title>
+        <style>
+            @page {
+                size: 48in 36in;
+                margin: 0;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                width: 48in;
+                height: 36in;
+            }
+            body {
+                font-family: Arial, Helvetica, sans-serif;
+                color: #1d1d1f;
+                font-size: 0.47in;
+                line-height: 1.3;
+                display: flex;
+                flex-direction: column;
+            }
+            header {
+                color: #1d1d1f;
+                padding: 0.5in 0.8in 0.4in;
+                text-align: center;
+            }
+            h1 {
+                font-size: 1.2in;
+                line-height: 1.05;
+                margin: 0 0 0.18in;
+            }
+            header .sub {
+                font-size: 0.5in;
+                margin-top: 0.18in;
+                opacity: 0.92;
+            }
+            header .who {
+                font-size: 0.6in;
+                line-height: 1.35;
+                color: #1d1d1f;
+            }
+            main {
+                flex: 1;
+                min-height: 0;
+                display: grid;
+                grid-template-columns: 16.2in 1fr 1fr;
+                column-gap: 0.8in;
+                padding: 0.7in 0.8in 0.6in;
+            }
+            .col {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            section {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                margin-bottom: 0.55in;
+            }
+            section:last-child {
+                margin-bottom: 0;
+            }
+            section.grow {
+                flex: 1;
+            }
+            h2 {
+                color: #1f3a5f;
+                text-align: left;
+                font-size: 0.68in;
+                line-height: 1.15;
+                font-weight: 700;
+                margin: 0 0 0.35in;
+                padding: 0 0 0.1in;
+                border-bottom: 0.07in solid #1f3a5f;
+            }
+            p {
+                margin: 0 0 0.2in;
+            }
+            ul {
+                margin: 0 0 0.2in;
+                padding-left: 0.45in;
+            }
+            li {
+                margin-bottom: 0.16in;
+            }
+            b.r {
+                color: #b31b1b;
+            }
+            .muted {
+                color: #5f6368;
+            }
+            .cap {
+                font-size: 0.4in;
+                color: #5f6368;
+                margin: 0.25in 0 0.25in;
+                line-height: 1.3;
+            }
+            code {
+                font-family: Menlo, monospace;
+                font-size: 0.85em;
+            }
+            .fig {
+                min-height: 0;
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+            }
+            .fig.flex {
+                flex: 1;
+            }
+            .fig img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                object-position: top;
+            }
 
-  }
-  h1 { font-size: 1.2in; line-height: 1.05; margin: 0 0 0.18in; }
-  header .sub { font-size: 0.5in; margin-top: 0.18in; opacity: 0.92; }
-  header .who { font-size: 0.6in; line-height: 1.35; color: #1d1d1f; }
-  main {
-    flex: 1; min-height: 0; display: grid; grid-template-columns: 16.2in 1fr 1fr;
-    column-gap: 0.8in; padding: 0.7in 0.8in 0.6in;
-  }
-  .col { display: flex; flex-direction: column; min-height: 0; }
-  section { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0.55in; }
-  section:last-child { margin-bottom: 0; }
-  section.grow { flex: 1; }
-  h2 { color: #1f3a5f; text-align: left; font-size: 0.68in; line-height: 1.15; font-weight: 700;
-       margin: 0 0 0.35in; padding: 0 0 0.1in; border-bottom: 0.07in solid #1f3a5f; }
-  p { margin: 0 0 0.2in; }
-  ul { margin: 0 0 0.2in; padding-left: 0.45in; }
-  li { margin-bottom: 0.16in; }
-  b.r { color: #b31b1b; }
-  .muted { color: #5f6368; }
-  .cap { font-size: 0.4in; color: #5f6368; margin: 0.25in 0 0.25in; line-height: 1.3; }
-  code { font-family: Menlo, monospace; font-size: 0.85em; }
-  .fig { min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
-  .fig.flex { flex: 1; }
-  .fig img { width: 100%; height: 100%; object-fit: contain; object-position: top; }
+            table.t {
+                border-collapse: collapse;
+                width: 100%;
+                font-size: 0.44in;
+            }
+            table.t th,
+            table.t td {
+                border: 0.015in solid #c4c9d0;
+                padding: 0.13in 0.2in;
+                text-align: left;
+                vertical-align: middle;
+            }
+            table.t th {
+                background: #eef1f5;
+                font-weight: 700;
+            }
+            table.t tr.used td {
+                background: #e3f1e7;
+                font-weight: 700;
+            }
+            table.t td + td {
+                white-space: nowrap;
+            }
+            .cmp {
+                display: grid;
+                grid-template-columns: 2.6in 1fr;
+                row-gap: 0.4in;
+                column-gap: 0.3in;
+                align-items: center;
+                margin: 0.2in 0 0.15in;
+            }
+            .cmp .lab {
+                font-weight: 700;
+                font-size: 0.46in;
+                line-height: 1.15;
+            }
+            .row {
+                display: flex;
+                gap: 0.1in;
+                align-items: stretch;
+            }
+            .row .gap {
+                width: 0.55in;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #5f6368;
+                font-size: 0.5in;
+            }
+            .c {
+                flex: 1;
+                border-radius: 0.03in;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                color: #1d1d1f;
+                font-size: 0.42in;
+                text-align: center;
+                line-height: 1;
+            }
+            .c div {
+                flex: 1;
+                padding: 0.12in 0;
+            }
+            .A {
+                background: #dbe6f4;
+                border: 0.025in solid #2b5c9e;
+            }
+            .E {
+                background: #dcefe3;
+                border: 0.025in solid #2e8b57;
+            }
+            .c .A + .E {
+                border-top: none;
+            }
+            .key {
+                font-size: 0.38in;
+                color: #5f6368;
+            }
+            .key i {
+                display: inline-block;
+                width: 0.3in;
+                height: 0.3in;
+                border-radius: 0.05in;
+                vertical-align: -0.03in;
+                margin-right: 0.1in;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>Improving the LLM serving Pareto frontier with AFD on TPUs</h1>
+            <div class="who">
+                Charlie Xue, Akhil Chilaka, Rohan Anne, Jerry Ji
+            </div>
+        </header>
 
-  table.t { border-collapse: collapse; width: 100%; font-size: 0.44in; }
-  table.t th, table.t td { border: 0.015in solid #c4c9d0; padding: 0.13in 0.2in; text-align: left; vertical-align: middle; }
-  table.t th { background: #eef1f5; font-weight: 700; }
-  table.t tr.used td { background: #e3f1e7; font-weight: 700; }
-  table.t td + td { white-space: nowrap; }
-  .cmp { display: grid; grid-template-columns: 2.6in 1fr; row-gap: 0.4in; column-gap: 0.3in;
-         align-items: center; margin: 0.2in 0 0.15in; }
-  .cmp .lab { font-weight: 700; font-size: 0.46in; line-height: 1.15; }
-  .row { display: flex; gap: 0.1in; align-items: stretch; }
-  .row .gap { width: 0.55in; display: flex; align-items: center; justify-content: center;
-              color: #5f6368; font-size: 0.5in; }
-  .c { flex: 1; border-radius: 0.03in; overflow: hidden; display: flex; flex-direction: column;
-       color: #1d1d1f; font-size: 0.42in; text-align: center; line-height: 1; }
-  .c div { flex: 1; padding: 0.12in 0; }
-  .A { background: #dbe6f4; border: 0.025in solid #2b5c9e; } .E { background: #dcefe3; border: 0.025in solid #2e8b57; }
-  .c .A + .E { border-top: none; }
-  .key { font-size: 0.38in; color: #5f6368; }
-  .key i { display: inline-block; width: 0.3in; height: 0.3in; border-radius: 0.05in;
-           vertical-align: -0.03in; margin-right: 0.1in; }
-</style>
-</head>
-<body>
-<header>
-  <h1>Improving the LLM serving Pareto frontier with AFD on TPUs</h1>
-  <div class="who">Charlie Xue, Akhil Chilaka, Rohan Anne, Jerry Ji</div>
-</header>
+        <main>
+            <div class="col">
+                <section>
+                    <h2>Motivation</h2>
+                    <ul>
+                        <li>
+                            In a mixture-of-experts (MoE) model,
+                            attention&rsquo;s cost grows with the number and
+                            length of requests, since it works over each
+                            request&rsquo;s KV cache.
+                        </li>
+                        <li>
+                            The experts hold most of the weights and are shared
+                            by all requests, but each token uses only a few, so
+                            they run efficiently only when many tokens are
+                            batched together.
+                        </li>
+                        <li>
+                            Colocated serving runs both on every chip and must
+                            scale them together, while attention&ndash;FFN
+                            disaggregation (AFD) gives each its own chips.
+                        </li>
+                        <li>
+                            On GPUs, ByteDance&rsquo;s MegaScale-Infer uses AFD
+                            to get up to 1.9&times; higher throughput per GPU,
+                            and we are testing whether AFD works on TPUs.
+                        </li>
+                    </ul>
+                    <div class="cmp">
+                        <div class="lab">Colocated</div>
+                        <div class="row">
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                            <div class="c">
+                                <div class="A">attn</div>
+                                <div class="E">16 exp</div>
+                            </div>
+                        </div>
+                        <div class="lab">AFD</div>
+                        <div class="row">
+                            <div class="c"><div class="A">attn</div></div>
+                            <div class="c"><div class="A">attn</div></div>
+                            <div class="c"><div class="A">attn</div></div>
+                            <div class="c"><div class="A">attn</div></div>
+                            <div class="gap">&harr;</div>
+                            <div class="c"><div class="E">32 exp</div></div>
+                            <div class="c"><div class="E">32 exp</div></div>
+                            <div class="c"><div class="E">32 exp</div></div>
+                            <div class="c"><div class="E">32 exp</div></div>
+                        </div>
+                    </div>
+                </section>
+                <section>
+                    <h2>Why TPUs make this difficult</h2>
+                    <p>
+                        torch_tpu, the PyTorch backend that vLLM uses on TPUs,
+                        compiles each step into one program that every chip
+                        runs, and chips exchange data only through collectives
+                        that all of them call together. AFD needs the two groups
+                        to do different work, and our first attempts failed:
+                    </p>
+                    <ul>
+                        <li>
+                            Giving each group its own program made the
+                            collectives they share hang.
+                        </li>
+                        <li>
+                            torch_tpu doesn&rsquo;t support a runtime branch
+                            (<code>torch.cond</code>) that would let one program
+                            choose a role.
+                        </li>
+                        <li>
+                            An all-to-all that sends different amounts to each
+                            chip, as AFD&rsquo;s exchange needs, doesn&rsquo;t
+                            compile.
+                        </li>
+                        <li>
+                            Sending tokens chip to chip outside the compiled
+                            step works, but takes 1.3&nbsp;ms per layer, about
+                            90 times slower.
+                        </li>
+                    </ul>
+                    <p>
+                        We ended up running the same program on every chip and
+                        passing each chip&rsquo;s role in as data.
+                    </p>
+                </section>
+                <section class="grow">
+                    <h2>Cost of the token exchange</h2>
+                    <p>
+                        In every layer, AFD sends each token from the attention
+                        chips to the expert chips and brings the results back.
+                        With the shared program, this takes 13 to 23% of the
+                        time of a colocated layer (<b class="r">red</b> vs
+                        <span class="muted">grey</span>). That overhead is small
+                        enough for AFD to be worth pursuing.
+                    </p>
+                    <div class="fig flex">
+                        <img
+                            data-fig="fig_exchange"
+                            src="fig_exchange.svg"
+                            alt="Exchange cost per layer vs a colocated layer"
+                        />
+                    </div>
+                </section>
+            </div>
 
-<main>
-<div class="col">
-  <section>
-    <h2>Motivation</h2>
-    <ul>
-      <li>In a mixture-of-experts (MoE) model, attention&rsquo;s cost grows with the number and length of requests, because it works over each request&rsquo;s KV cache.</li>
-      <li>The experts hold most of the weights and are shared by all requests, but each token uses only a few, so they run efficiently only when many tokens are batched together.</li>
-      <li>Colocated serving runs both on every chip and must scale them together, while attention&ndash;FFN disaggregation (AFD) gives each its own chips.</li>
-      <li>On GPUs, ByteDance&rsquo;s MegaScale-Infer uses AFD to get up to 1.9&times; higher throughput per GPU, and we are testing whether AFD works on TPUs.</li>
-    </ul>
-    <div class="cmp">
-      <div class="lab">Colocated</div><div class="row"><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div></div>
-      <div class="lab">AFD</div><div class="row"><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="gap">&harr;</div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div></div>
-    </div>
-  </section>
-  <section>
-    <h2>Why TPUs make this difficult</h2>
-    <p>torch_tpu, the PyTorch backend that vLLM uses on TPUs, compiles each step into one program that every chip runs, and chips exchange data only through collectives that all of them call together. AFD needs the two groups to do different work, and our first attempts failed:</p>
-    <ul>
-      <li>Giving each group its own program made the collectives they share hang.</li>
-      <li>torch_tpu doesn&rsquo;t support a runtime branch (<code>torch.cond</code>) that would let one program choose a role.</li>
-      <li>An all-to-all that sends different amounts to each chip, as AFD&rsquo;s exchange needs, doesn&rsquo;t compile.</li>
-      <li>Sending tokens chip to chip outside the compiled step works, but takes 1.3&nbsp;ms per layer, about 90 times slower.</li>
-    </ul>
-    <p>We ended up running the same program on every chip and passing each chip&rsquo;s role in as data.</p>
-  </section>
-  <section class="grow">
-    <h2>Cost of the token exchange</h2>
-    <p>In every layer, AFD sends each token from the attention chips to the expert chips and brings the results back. With the shared program, this takes 13 to 23% of the time of a colocated layer (<b class="r">red</b> vs <span class="muted">grey</span>). That overhead is small enough for AFD to be worth pursuing.</p>
-    <div class="fig flex"><img data-fig="fig_exchange" src="fig_exchange.svg" alt="Exchange cost per layer vs a colocated layer"></div>
-  </section>
-</div>
+            <div class="col">
+                <section class="grow">
+                    <h2>Our design</h2>
+                    <div class="fig flex">
+                        <img
+                            data-fig="fig_roles"
+                            src="fig_roles.svg"
+                            alt="One MoE layer: what each chip does"
+                        />
+                    </div>
+                    <ul>
+                        <li>
+                            We serve Qwen3-30B-A3B, an MoE model with 128
+                            experts and 58&nbsp;GB of expert weights, on 8 TPU
+                            v6e chips with vLLM.
+                        </li>
+                        <li>
+                            vLLM runs two copies of the model on 4 chips each
+                            (<span style="white-space: nowrap"
+                                >DP=2&#8239;&times;&#8239;TP=4</span
+                            >), and both copies execute the same compiled
+                            program in lockstep.
+                        </li>
+                        <li>
+                            We send every request to the first copy and give its
+                            chips an empty expert range, so they skip the expert
+                            work and act as attention chips, though they still
+                            load expert weights.
+                        </li>
+                        <li>
+                            The second copy gets no requests, so its chips act
+                            as expert chips, each holding 32 of the 128 experts.
+                        </li>
+                        <li>
+                            Tokens reach the expert chips and come back through
+                            vLLM&rsquo;s existing all-gather and reduce-scatter,
+                            shown as the red rows.
+                        </li>
+                        <li>
+                            The grey cells are wasted work, since the expert
+                            chips run attention on padding and the attention
+                            chips sit idle while the experts run.
+                        </li>
+                    </ul>
+                </section>
+                <section>
+                    <h2>Checking correctness</h2>
+                    <p>
+                        AFD answers all 4 of our test prompts correctly, such as
+                        <span style="white-space: nowrap"
+                            >&ldquo;What is
+                            17&nbsp;&times;&nbsp;23?&rdquo;</span
+                        >
+                        With greedy decoding, its output also matches colocated
+                        serving word for word until the model sees two almost
+                        equally likely next words, where tiny bf16 rounding
+                        differences can flip the choice:
+                    </p>
+                    <table class="t">
+                        <tr>
+                            <th>Prompt</th>
+                            <th>AFD</th>
+                            <th>Colocated</th>
+                        </tr>
+                        <tr>
+                            <td>
+                                &ldquo;In 1969, the Apollo 11 mission&rdquo;
+                            </td>
+                            <td><b>marked</b> (0.239)</td>
+                            <td><b>achieved</b> (0.239)</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                &ldquo;The three laws of thermodynamics are
+                                the&rdquo;
+                            </td>
+                            <td><b>foundation</b> (0.233)</td>
+                            <td><b>most</b> (0.206)</td>
+                        </tr>
+                    </table>
+                </section>
+            </div>
 
-<div class="col">
-  <section class="grow">
-    <h2>Our design</h2>
-    <div class="fig flex"><img data-fig="fig_roles" src="fig_roles.svg" alt="One MoE layer: what each chip does"></div>
-    <ul>
-      <li>We serve Qwen3-30B-A3B, an MoE model with 128 experts and 58&nbsp;GB of expert weights, on 8 TPU v6e chips with vLLM.</li>
-      <li>vLLM runs two copies of the model on 4 chips each (<span style="white-space:nowrap">DP=2&#8239;&times;&#8239;TP=4</span>), and both copies execute the same compiled program in lockstep.</li>
-      <li>We send every request to the first copy and give its chips an empty expert range, so they skip the expert work and act as attention chips, though they still load expert weights.</li>
-      <li>The second copy gets no requests, so its chips act as expert chips, each holding 32 of the 128 experts.</li>
-      <li>Tokens reach the expert chips and come back through vLLM&rsquo;s existing all-gather and reduce-scatter, shown as the red rows.</li>
-      <li>The grey cells are wasted work, since the expert chips run attention on padding and the attention chips sit idle while the experts run.</li>
-    </ul>
-  </section>
-  <section>
-    <h2>Checking correctness</h2>
-    <p>AFD answers all 4 of our test prompts correctly, such as <span style="white-space:nowrap">&ldquo;What is 17&nbsp;&times;&nbsp;23?&rdquo;</span> With greedy decoding, its output also matches colocated serving word for word until the model sees two almost equally likely next words, where tiny bf16 rounding differences can flip the choice:</p>
-    <table class="t">
-      <tr><th>Prompt</th><th>AFD</th><th>Colocated</th></tr>
-      <tr><td>&ldquo;In 1969, the Apollo 11 mission&rdquo;</td><td><b>marked</b> (0.239)</td><td><b>achieved</b> (0.239)</td></tr>
-      <tr><td>&ldquo;The three laws of thermodynamics are the&rdquo;</td><td><b>foundation</b> (0.233)</td><td><b>most</b> (0.206)</td></tr>
-    </table>
-  </section>
-</div>
-
-<div class="col">
-  <section class="grow">
-    <h2>Our results</h2>
-    <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
-    <p style="margin-top:0.25in">Against <span style="white-space:nowrap">DP=2&#8239;&times;&#8239;TP=4</span>, the gap grows from 19% at 1 request to 44% at 128. At 128 requests, AFD also takes twice as long to the first token (2.0&nbsp;s vs 1.0&nbsp;s) and gives each user 34 tokens/s instead of 61. We think attention is the bottleneck, since AFD runs all of it on 4 chips instead of 8.</p>
-  </section>
-  <section>
-    <h2>Next steps</h2>
-    <ul>
-      <li>Profile one layer of AFD and of colocated serving to measure what each grey cell costs, and fix the biggest bottleneck first.</li>
-      <li>Split each batch in half so attention works on one half while the experts work on the other, as MegaScale-Infer does on GPUs.</li>
-      <li>Remove the padding work on the expert chips and the unused expert weights on the attention chips, freeing memory for more requests.</li>
-      <li>Test giving attention more chips than the experts, since attention limits AFD at high load.</li>
-    </ul>
-  </section>
-</div>
-</main>
-</body>
+            <div class="col">
+                <section class="grow">
+                    <h2>Our results</h2>
+                    <div class="fig flex">
+                        <img
+                            data-fig="fig_throughput"
+                            src="fig_throughput.svg"
+                            alt="Output tokens/s vs concurrent requests"
+                        />
+                    </div>
+                    <p style="margin-top: 0.25in">
+                        Against
+                        <span style="white-space: nowrap"
+                            >DP=2&#8239;&times;&#8239;TP=4</span
+                        >, the gap grows from 19% at 1 request to 44% at 128. At
+                        128 requests, AFD also takes twice as long to the first
+                        token (2.0&nbsp;s vs 1.0&nbsp;s) and gives each user 34
+                        tokens/s instead of 61. We think attention is the
+                        bottleneck, since AFD runs all of it on 4 chips instead
+                        of 8.
+                    </p>
+                </section>
+                <section>
+                    <h2>Next steps</h2>
+                    <ul>
+                        <li>
+                            Profile one layer of AFD and of colocated serving to
+                            measure what each grey cell costs, and fix the
+                            biggest bottleneck first.
+                        </li>
+                        <li>
+                            Split each batch in half so attention works on one
+                            half while the experts work on the other, as
+                            MegaScale-Infer does on GPUs.
+                        </li>
+                        <li>
+                            Remove the padding work on the expert chips and the
+                            unused expert weights on the attention chips,
+                            freeing memory for more requests.
+                        </li>
+                        <li>
+                            Test giving attention more chips than the experts,
+                            since attention limits AFD at high load.
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </main>
+    </body>
 </html>
