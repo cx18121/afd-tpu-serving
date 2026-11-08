@@ -80,10 +80,7 @@ def throughput(data, size):
         cs = sorted(data[layout])
         ys[layout] = {c: mean(data[layout][c], "output_throughput") for c in cs}
         ax.plot(cs, [ys[layout][c] for c in cs], ls=ls, color=color, lw=6, marker="o",
-                ms=16, zorder=3 if layout == "afd_dp2" else 2)
-        dy = {"tp8_ep": -170, "dp2_tp4_ep": 120}.get(layout, 0)
-        ax.text(cs[-1] * 1.12, ys[layout][cs[-1]] + dy, label, va="center", fontsize=30,
-                color=color, fontweight="bold")
+                ms=16, zorder=3 if layout == "afd_dp2" else 2, label=label)
     base, afd = ys["dp2_tp4_ep"], ys["afd_dp2"]
     cs = sorted(afd)
     ax.fill_between(cs, [afd[c] for c in cs], [base[c] for c in cs], color=RED, alpha=0.08,
@@ -98,10 +95,13 @@ def throughput(data, size):
     cs = sorted(afd)
     ax.set_xticks(cs, [str(c) for c in cs])
     ax.minorticks_off()
-    ax.set_xlim(0.85, 128 * 7.5)
-    ax.set_ylim(-280, 5700)
+    ax.set_xlim(0.8, 160)
+    ax.set_ylim(-300, 5800)
     ax.set_yticks(range(0, 5001, 1000), [f"{v:,}" for v in range(0, 5001, 1000)])
-    ax.spines["bottom"].set_bounds(1, 128)
+    handles, labels = ax.get_legend_handles_labels()
+    order = [1, 0, 2]  # DP=2 x TP=4, TP=8, AFD
+    ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper left",
+              frameon=False, fontsize=30, handlelength=2.6)
     ax.set_xlabel("Concurrent requests")
     ylabel_top(ax, "Output tokens/s, 8 chips")
     fig.tight_layout()
@@ -151,9 +151,9 @@ def roles(size):
     idle = "#e8eaed"
     rows = [  # label, cells (color, text) per chip or one spanning cell
         ("Attention", [(BLUE, "attn")] * 4 + [(idle, "pad")] * 4),
-        ("Send tokens", [(RED, "every token goes to every expert chip|all-gather")]),
+        ("Send tokens", [(RED, "each token is copied to all 4 expert chips|all-gather")]),
         ("Experts", [(idle, "none")] * 4 + [(GREEN, f"{32 * j}–{32 * j + 31}") for j in range(4)]),
-        ("Return results", [(RED, "expert outputs are summed on the attention chips|reduce-scatter")]),
+        ("Return results", [(RED, "each token’s expert outputs are added up on the attention chips|reduce-scatter")]),
     ]
     w, gap = 1.0, 0.12
     xs = [i * (w + gap) + (0.35 if i >= 4 else 0) for i in range(8)]
@@ -167,8 +167,8 @@ def roles(size):
                          boxstyle="round,pad=0,rounding_size=0.03", fc=LIGHT_FILL[color],
                          ec=color, lw=2.5))
             main, op = text.split("|")
-            ax.text(right / 2, y + 0.13, main, ha="center", va="center", color=INK, fontsize=30)
-            ax.text(right / 2, y - 0.22, op, ha="center", va="center", color=RED, fontsize=24)
+            ax.text(right / 2, y + 0.13, main, ha="center", va="center", color=INK, fontsize=22)
+            ax.text(right / 2, y - 0.22, op, ha="center", va="center", color=RED, fontsize=20)
             continue
         for x, (color, text) in zip(xs, cells):
             ax.add_patch(FancyBboxPatch((x, y - 0.45), w, 0.9,
