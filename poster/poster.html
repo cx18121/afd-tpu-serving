@@ -19,7 +19,7 @@
   header .sub { font-size: 0.5in; margin-top: 0.18in; opacity: 0.92; }
   header .who { font-size: 0.6in; line-height: 1.35; color: #1d1d1f; }
   main {
-    flex: 1; min-height: 0; display: grid; grid-template-columns: 15.2in 1fr 1fr;
+    flex: 1; min-height: 0; display: grid; grid-template-columns: 16.2in 1fr 1fr;
     column-gap: 0.8in; padding: 0.7in 0.8in 0.6in;
   }
   .col { display: flex; flex-direction: column; min-height: 0; }
@@ -77,25 +77,24 @@
       <li>AFD has been built for GPUs, such as ByteDance&rsquo;s MegaScale-Infer, and we are testing whether it works on TPUs.</li>
     </ul>
     <div class="cmp">
-      <div class="lab">Colocated</div><div class="row"><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div><div class="c"><div class="A">attn</div><div class="E">16</div></div></div>
-      <div class="lab">AFD</div><div class="row"><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="gap">&harr;</div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div><div class="c"><div class="E">32</div></div></div>
+      <div class="lab">Colocated</div><div class="row"><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div><div class="c"><div class="A">attn</div><div class="E">16 exp</div></div></div>
+      <div class="lab">AFD</div><div class="row"><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="c"><div class="A">attn</div></div><div class="gap">&harr;</div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div><div class="c"><div class="E">32 exp</div></div></div>
     </div>
-    <div class="key"><i class="A"></i>attention &nbsp;&nbsp; <i class="E"></i>experts per chip</div>
   </section>
   <section>
     <h2>Why TPUs make this difficult</h2>
     <p>torch_tpu compiles each step into one program that every chip runs, and chips exchange data only through collectives that all of them call together. AFD needs the two groups to do different work, and our first attempts failed:</p>
     <ul>
-      <li>Separate programs for each group made their shared collectives hang.</li>
-      <li>torch_tpu doesn&rsquo;t support a runtime branch (<code>torch.cond</code>) to pick a role.</li>
-      <li>An all-to-all that sends different amounts to each chip doesn&rsquo;t compile.</li>
-      <li>Chip-to-chip sends outside the compiled step are far too slow.</li>
+      <li>Giving each group its own program made the collectives they share hang.</li>
+      <li>torch_tpu doesn&rsquo;t support a runtime branch (<code>torch.cond</code>) that would let one program choose a role.</li>
+      <li>An all-to-all that sends different amounts to each chip, as AFD&rsquo;s exchange needs, doesn&rsquo;t compile.</li>
+      <li>Sending tokens chip to chip outside the compiled step works, but is about 90 times slower.</li>
     </ul>
     <p>We ended up running the same program on every chip and passing each chip&rsquo;s role in as data.</p>
   </section>
   <section class="grow">
     <h2>Cost of the token exchange</h2>
-    <p>In every layer, AFD sends each token from the attention chips to the expert chips and brings the results back. With the shared program this takes 13 to 23% of a colocated layer (<b class="r">red</b> vs <span class="muted">grey</span>), while chip-to-chip sends took 1.3&nbsp;ms, longer than a whole layer.</p>
+    <p>In every layer, AFD sends each token from the attention chips to the expert chips and brings the results back. With the shared program, this takes 13 to 23% of the time of a colocated layer (<b class="r">red</b> vs <span class="muted">grey</span>), while chip-to-chip sends took 1.3&nbsp;ms, longer than a whole layer.</p>
     <div class="fig flex"><img data-fig="fig_exchange" src="fig_exchange.svg" alt="Exchange cost per layer vs a colocated layer"></div>
   </section>
 </div>
