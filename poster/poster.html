@@ -108,7 +108,7 @@
       <li>vLLM runs two copies of the model on 4 chips each (<span style="white-space:nowrap">DP=2&#8239;&times;&#8239;TP=4</span>), and both copies execute the same compiled program in lockstep.</li>
       <li>We send every request to the first copy and give its chips an empty expert range, so they skip the expert work and act as attention chips, though they still load expert weights.</li>
       <li>The second copy gets no requests, so its chips act as expert chips, each holding 32 of the 128 experts.</li>
-      <li>Tokens reach the expert chips and come back through vLLM&rsquo;s existing all-gather and reduce-scatter (red rows), so we didn&rsquo;t have to write any communication code.</li>
+      <li>Tokens reach the expert chips and come back through vLLM&rsquo;s existing all-gather and reduce-scatter, shown as the red rows.</li>
       <li>The grey cells are wasted work, since the expert chips run attention on padding and the attention chips sit idle while the experts run.</li>
     </ul>
   </section>
