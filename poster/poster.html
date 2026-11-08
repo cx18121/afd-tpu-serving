@@ -239,7 +239,7 @@
                         <li>
                             Colocated serving runs both on every chip and must
                             scale them together, while attention&ndash;FFN
-                            disaggregation (AFD) gives each its own chips.
+                            disaggregation (AFD) gives attention and the expert (FFN) layers their own chips.
                         </li>
                         <li>
                             On GPUs, ByteDance&rsquo;s MegaScale-Infer uses AFD
@@ -449,7 +449,7 @@
                         Against
                         <span style="white-space: nowrap"
                             >DP=2&#8239;&times;&#8239;TP=4</span
-                        >, the gap grows from 19% at 1 request to 44% at 128. At
+                        >, AFD&rsquo;s throughput is 19% lower at 1 request and 44% lower at 128. At
                         128 requests, AFD also takes twice as long to the first
                         token (2.0&nbsp;s vs 1.0&nbsp;s) and gives each user 34
                         tokens/s instead of 61. We think attention is the
@@ -477,7 +477,7 @@
                         </li>
                         <li>
                             Test giving attention more chips than the experts,
-                            since attention limits AFD at high load.
+                            since attention appears to limit AFD at high load.
                         </li>
                     </ul>
                 </section>
