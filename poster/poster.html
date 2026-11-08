@@ -125,7 +125,7 @@
 
 <div class="col">
   <section class="grow">
-    <h2>AFD&rsquo;s throughput is 19 to 44% below colocated</h2>
+    <h2>Throughput is 19 to 44% below colocated</h2>
     <div class="fig flex"><img data-fig="fig_throughput" src="fig_throughput.svg" alt="Output tokens/s vs concurrent requests"></div>
     <p style="margin-top:0.25in">Against DP=2&thinsp;&times;&thinsp;TP=4, the layout AFD is built from, the gap grows from 19% at 1 request to 44% at 128, and time to first token doubles at 128 requests (2.0&nbsp;s vs 1.0&nbsp;s). This points to attention as the bottleneck, since AFD runs all of it on 4 chips instead of 8.</p>
   </section>
@@ -135,6 +135,7 @@
       <li>Profile one layer of AFD and of colocated serving to see which of those costs is largest, and fix that one first.</li>
       <li>Split each batch in half so attention works on one half while the experts work on the other, which is how GPU AFD systems hide the waiting.</li>
       <li>Remove the padding work, and the unused expert weights on attention chips, which also frees memory for more requests.</li>
+      <li>Test giving attention more chips than the experts, since attention limits AFD at high load.</li>
       <li>Rerun the throughput sweep after each fix to see whether AFD reaches the colocated Pareto frontier of throughput versus per-user speed.</li>
     </ul>
   </section>
