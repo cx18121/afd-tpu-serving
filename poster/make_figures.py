@@ -71,8 +71,8 @@ def ylabel_top(ax, text):
 def throughput(data, size):
     """Total output tokens/s vs concurrent requests, AFD vs both colocated layouts."""
     fig, ax = plt.subplots(figsize=size)
-    series = [("tp8_ep", "Colocated, TP=8", LIGHT, "--"),
-              ("dp2_tp4_ep", "Colocated, 2 × TP=4", DARK, "-"),
+    series = [("tp8_ep", "Colocated, 1 copy on 8 chips", LIGHT, "--"),
+              ("dp2_tp4_ep", "Colocated, 2 copies on 4 chips", DARK, "-"),
               ("afd_dp2", "AFD v1", RED, "-")]
     ys = {}
     for layout, label, color, ls in series:
@@ -97,7 +97,7 @@ def throughput(data, size):
     cs = sorted(afd)
     ax.set_xticks(cs, [str(c) for c in cs])
     ax.minorticks_off()
-    ax.set_xlim(0.85, 128 * 5.2)
+    ax.set_xlim(0.85, 128 * 7.5)
     ax.set_ylim(-280, 5700)
     ax.set_yticks(range(0, 5001, 1000), [f"{v:,}" for v in range(0, 5001, 1000)])
     ax.spines["bottom"].set_bounds(1, 128)
