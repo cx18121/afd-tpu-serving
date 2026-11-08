@@ -83,7 +83,7 @@
     <div class="key"><i class="A"></i>attention &nbsp;&nbsp; <i class="E"></i>experts per chip</div>
   </section>
   <section>
-    <h2>Why TPUs make this hard</h2>
+    <h2>Why TPUs make this difficult</h2>
     <p>torch_tpu compiles each step into one program that every chip runs, and chips exchange data only through collectives that all of them call together. AFD needs the two groups to do different work, and our first attempts failed:</p>
     <ul>
       <li>Separate programs for each group made their shared collectives hang.</li>
