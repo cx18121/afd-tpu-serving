@@ -120,18 +120,20 @@ def exchange(data, size):
     bs = [1, 8, 32, 128]
     layer = [mean(data["tp8_ep"][c], "mean_tpot_ms") * 1000 / 48 for c in bs]
     xfer = [statistics.median(pts[("4:4", b)]) for b in bs]
-    ax.bar([i - 0.2 for i in range(4)], layer, width=0.4, color="#d5d8dc")
-    ax.set_xlim(-0.6, 3.95)
-    ax.bar([i + 0.2 for i in range(4)], xfer, width=0.4, color=RED)
-    for i, (lv, xv) in enumerate(zip(layer, xfer)):
-        ax.text(i + 0.42, xv / 2, f"{xv / lv:.0%}", ha="left", va="center", fontsize=30,
+    ys = list(range(len(bs)))[::-1]
+    h = 0.36
+    ax.barh([y + 0.2 for y in ys], layer, height=h, color="#d5d8dc")
+    ax.barh([y - 0.2 for y in ys], xfer, height=h, color=RED)
+    for y, lv, xv in zip(ys, layer, xfer):
+        ax.text(lv + 6, y + 0.2, f"{lv:.0f} µs", va="center", fontsize=26, color=DARK)
+        ax.text(xv + 6, y - 0.2, f"{xv:.0f} µs ({xv / lv:.0%})", va="center", fontsize=26,
                 color=RED, fontweight="bold")
-        ax.text(i - 0.2, lv + 8, f"{lv:.0f}", ha="center", fontsize=26, color=DARK)
     print("exchange share of layer:", [f"{x / l:.0%}" for x, l in zip(xfer, layer)])
-    ax.set_xticks(range(4), [str(b) for b in bs])
-    ax.set_xlabel("Tokens per chip")
-    ylabel_top(ax, "µs per layer")
-    ax.set_ylim(0, 410)
+    ax.set_yticks(ys, [f"{b} token" + ("s" if b > 1 else "") for b in bs])
+    ax.tick_params(axis="y", length=0, pad=14)
+    ax.set_xlim(0, 470)
+    ax.set_xlabel("µs per layer, by tokens per chip")
+    ax.spines["left"].set_visible(False)
     fig.tight_layout()
     save(fig, "fig_exchange")
 

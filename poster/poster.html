@@ -89,13 +89,13 @@
       <li>Separate programs for each group made their shared collectives hang.</li>
       <li>torch_tpu doesn&rsquo;t support a runtime branch (<code>torch.cond</code>) to pick a role.</li>
       <li>An all-to-all that sends different amounts to each chip doesn&rsquo;t compile.</li>
-      <li>Chip-to-chip sends outside the compiled step work, but are far too slow.</li>
+      <li>Chip-to-chip sends outside the compiled step are far too slow.</li>
     </ul>
     <p>We ended up running the same program on every chip and passing each chip&rsquo;s role in as data.</p>
   </section>
   <section class="grow">
     <h2>Cost of the token exchange</h2>
-    <p>In every layer, AFD sends each token from the attention chips to the expert chips and brings the expert results back. Timed on its own, this exchange takes 13 to 23% of a colocated layer with the shared program (<b class="r">red</b> vs <span class="muted">grey</span>), while chip-to-chip sends took 1.3&nbsp;ms, longer than the whole layer.</p>
+    <p>In every layer, AFD sends each token from the attention chips to the expert chips and brings the results back. With the shared program this takes 13 to 23% of a colocated layer (<b class="r">red</b> vs <span class="muted">grey</span>), while chip-to-chip sends took 1.3&nbsp;ms, longer than a whole layer.</p>
     <div class="fig flex"><img data-fig="fig_exchange" src="fig_exchange.svg" alt="Exchange cost per layer vs a colocated layer"></div>
   </section>
 </div>
