@@ -34,7 +34,7 @@ plt.rcParams.update({
     "xtick.labelsize": 28, "ytick.labelsize": 28, "legend.fontsize": 28,
     "axes.spines.top": False, "axes.spines.right": False, "axes.linewidth": 2,
     "xtick.major.width": 2, "ytick.major.width": 2, "xtick.major.size": 8,
-    "ytick.major.size": 8, "svg.fonttype": "path", "axes.edgecolor": INK,
+    "ytick.major.size": 8, "svg.fonttype": "path", "svg.hashsalt": "afd-poster", "axes.edgecolor": INK,
     "text.color": INK, "axes.labelcolor": INK, "xtick.color": INK, "ytick.color": INK,
 })
 
@@ -53,7 +53,8 @@ def mean(results, key):
 
 
 def save(fig, name):
-    fig.savefig(OUT / f"{name}.svg")
+    # Fixed salt and no date, so unchanged figures rebuild byte-for-byte.
+    fig.savefig(OUT / f"{name}.svg", metadata={"Date": None})
     (OUT / "preview").mkdir(exist_ok=True)
     fig.savefig(OUT / "preview" / f"{name}.png", dpi=40)
     plt.close(fig)
